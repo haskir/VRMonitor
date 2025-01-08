@@ -6,13 +6,16 @@ class WindowsProvider:
         self._target = None
 
     @classmethod
-    def all_windows(cls) -> dict[int, str]:
-        return {-1: "Любое окно"} | {i: window.title for i, window in enumerate(gw.getAllWindows()) if window.title}
+    def all_windows(cls) -> dict[str, gw.Win32Window]:
+        return {w._hWnd: w for w in gw.getAllWindows() if w.title}
 
     @property
     def is_target_active(self) -> bool:
-        if not self._target or self._target == "Любое окно":
+        if not self._target:
             return True
+        window = gw.getActiveWindow()
+        if not window:
+            return False
         return gw.getActiveWindow().title == self._target
 
     def set_target(self, new_target: str | None):

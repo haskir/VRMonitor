@@ -1,3 +1,5 @@
+import os
+import sys
 import time
 from pprint import pprint
 from venv import logger
@@ -132,6 +134,9 @@ def main():
     pprint(windows)
     # inp = int(input(f"Выберите окно: от -1 до {len(windows) - 1}\n"))
     inp = -1
+    for i, window in windows.items():
+        if "PUBG" in window:
+            inp = i
     window_finder.set_target(windows[inp])
 
     camera_controller = CameraController(cap, QEController(), THRESHOLD, window_finder)
@@ -141,5 +146,6 @@ def main():
 
 
 if __name__ == "__main__":
-    THRESHOLD: int = 25
+    os.chdir(os.path.split(sys.argv[0])[0])
+    THRESHOLD: int = 16
     main()
