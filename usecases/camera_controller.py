@@ -105,9 +105,6 @@ class CameraController:
 
                 if results.multi_face_landmarks:
                     for face_landmarks in results.multi_face_landmarks:
-                        # if not self.window_cont.is_target_active:
-                        #     break
-
                         # Извлечение координат ключевых точек лица
                         landmarks = [(lm.x * frame.shape[1], lm.y * frame.shape[0]) for lm in face_landmarks.landmark]
                         # Вычисление угла наклона
@@ -118,6 +115,8 @@ class CameraController:
                         else:
                             self.on_neutral()
 
+                        if not self.is_visible:
+                            continue
                         # Визуализация точек лица
                         for x, y in landmarks:
                             cv2.circle(frame, (int(x), int(y)), 1, (0, 255, 255), -1)
