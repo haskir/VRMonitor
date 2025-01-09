@@ -51,12 +51,10 @@ class MainWindow(QMainWindow):
         self._angle_layout = QHBoxLayout()
 
         # Toggle button
-        self.is_on = False
         self._toggle_on_off = QPushButton("Включить", self)
         self._toggle_on_off.clicked.connect(self.toggle_on_off)
         self._toggle_on_off.setCheckable(True)
 
-        self._is_camera_visible = False
         self._toggle_view = QPushButton("Показать камеру", self)
         self._toggle_view.clicked.connect(self.toggle_view)
         self._toggle_view.setCheckable(True)
@@ -68,21 +66,19 @@ class MainWindow(QMainWindow):
         self._angle_layout.addWidget(self._toggle_on_off)
         self.layout.addLayout(self._angle_layout)
 
-    def toggle_on_off(self):
-        if self.is_on:
-            self._toggle_on_off.setText("Включить")
-        else:
+    def toggle_on_off(self, status: bool):
+        if status:
             self._toggle_on_off.setText("Выключить")
-        self.is_on = not self.is_on
+        else:
+            self._toggle_on_off.setText("Включить")
         self._orchestrator.toggle_on_off()
 
-    def toggle_view(self):
-        self._is_camera_visible = not self._is_camera_visible
-        if self._is_camera_visible:
+    def toggle_view(self, status: bool):
+        if status:
             self._toggle_view.setText("Скрыть камеру")
         else:
             self._toggle_view.setText("Показать камеру")
-        self._orchestrator.set_camera_view(self._is_camera_visible)
+        self._orchestrator.set_camera_view(status)
 
     def _on_angle_changed(self):
         try:

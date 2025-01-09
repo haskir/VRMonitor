@@ -98,6 +98,7 @@ class WindowSelectWidget(QWidget):
     def _toggle_all(self, checked: bool):
         self._windows_provider.is_all_targets = checked
         self.scroll_content.setEnabled(not checked)
+        self.scroll_content.setVisible(not checked)
 
     @classmethod
     def on_select(cls, *args):
