@@ -69,7 +69,6 @@ class MainWindow(QMainWindow):
         self.layout.addLayout(self._angle_layout)
 
     def toggle_on_off(self):
-        print("toggle_on_off clicked")
         if self.is_on:
             self._toggle_on_off.setText("Включить")
         else:
@@ -95,3 +94,7 @@ class MainWindow(QMainWindow):
             self._toggle_edit.setText(str(BASE_THRESHOLD))
         else:
             self._orchestrator.set_threshold(angle)
+
+    def closeEvent(self, event):
+        self._orchestrator.camera_controller.off()
+        self._orchestrator.keyboard_controller.off()
