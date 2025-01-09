@@ -1,0 +1,2 @@
+
+BASE_THRESHOLD = 20

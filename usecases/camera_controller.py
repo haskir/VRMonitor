@@ -10,12 +10,29 @@ from usecases.windows_provider import WindowsProvider
 
 
 class CameraController:
-    def __init__(self, cap: cv2.VideoCapture, qe_controller: KeyboardController, threshold: int,
-                 window_cont: WindowsProvider):
-        self.cap = cap
+    def __init__(
+            self,
+            qe_controller: KeyboardController,
+            window_cont: WindowsProvider,
+            threshold: int
+    ):
+
+        self.cap: cv2.VideoCapture | None = None
         self.qe_controller = qe_controller
         self.threshold = threshold
         self.window_cont = window_cont
+        self.is_on = False
+
+    def on(self):
+        if not self.is_on:
+            self.is_on = True
+            self._run()
+
+    def off(self):
+        self.is_on = False
+
+    def new_camera_selected(self, index: int):
+        self.cap = cv2.VideoCapture(index)
 
     @classmethod
     def _calculate_head_tilt(cls, landmarks):
@@ -39,7 +56,7 @@ class CameraController:
         return abs(angle) > self.threshold
 
     @classmethod
-    def get_text_to_display(cls, angle: float) -> str:
+    def _get_text_to_display(cls, angle: float) -> str:
         # Определение направления наклона
         if angle > 10:
             return f"Head tilt to the left ({angle:.2f})"
@@ -49,7 +66,7 @@ class CameraController:
             return f"Head is straight ({angle:.2f})"
 
     @classmethod
-    def put_text_to_window(cls, text: str, frame, color: tuple[int, int, int] = None):
+    def _put_text_to_window(cls, text: str, frame, color: tuple[int, int, int] = None):
         """
         Функция для отображения направления наклона на экране
         """
@@ -62,13 +79,16 @@ class CameraController:
             color=color if color else (255, 255, 255)
         )
 
-    def run(self):
+    def _run(self):
+        if not self.cap:
+            return logger.error("Камера не выбрана!")
         logger.info(f'Запуск камеры {self.cap}')
 
         # Инициализация Mediapipe
         mp_face_mesh = mp.solutions.face_mesh
         face_mesh = mp_face_mesh.FaceMesh()
-        while self.cap.isOpened():
+
+        while self.cap.isOpened() and self.is_on:
             time.sleep(0.03)
             try:
                 ret, frame = self.cap.read()
@@ -99,8 +119,8 @@ class CameraController:
                         for x, y in landmarks:
                             cv2.circle(frame, (int(x), int(y)), 1, (0, 255, 255), -1)
 
-                        self.put_text_to_window(
-                            self.get_text_to_display(angle),
+                        self._put_text_to_window(
+                            self._get_text_to_display(angle),
                             frame,
                             (255, 255, 255) if not abs(angle) > 10 else (255, 0, 0) if angle > 0 else (0, 255, 0)
                         )
@@ -116,3 +136,6 @@ class CameraController:
             except Exception as e:
                 logger.error(f"Произошла ошибка: {e}")
                 time.sleep(1)
+
+        self.cap.release()
+        cv2.destroyAllWindows()

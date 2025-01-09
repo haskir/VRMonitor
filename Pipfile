@@ -9,6 +9,7 @@ pyside6 = "*"
 pynput = "*"
 pygetwindow = "*"
 loguru = "*"
+pywin32 = "*"
 
 [dev-packages]
 
