@@ -1,23 +1,23 @@
 from PySide6.QtGui import QIntValidator
 from PySide6.QtWidgets import (
-    QMainWindow, QApplication, QWidget,
-    QVBoxLayout, QPushButton, QLabel, QLineEdit, QHBoxLayout, )
+    QMainWindow, QWidget,
+    QVBoxLayout, QPushButton,
+    QLabel, QLineEdit, QHBoxLayout,
+)
 from loguru import logger
+
+from consts import BASE_THRESHOLD
 
 from UI.camera_list import CameraSelectWidget
 from UI.window_list import WindowSelectWidget
-from consts import BASE_THRESHOLD
-from usecases.camera_controller import CameraController
-from usecases.keyboard_controller import KeyboardController
-from usecases.windows_provider import WindowsProvider
-from usecases.cameras_provider import CameraProvider
+from usecases.orchestrator import Orchestrator
 
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.resize(400, 300)
+        self.resize(450, 450)
         self.setMaximumSize(800, 500)
         self.setWindowTitle("VR-монитор kek8")
 
@@ -27,22 +27,17 @@ class MainWindow(QMainWindow):
         self.layout = QVBoxLayout(self.central_widget)
 
         # Контроллеры
-        self._windows_provider = WindowsProvider()
-        self._cameras_provider = CameraProvider()
-        self._keyboard_controller = KeyboardController()
-        self._camera_controller = CameraController(
-            self._keyboard_controller,
-            self._windows_provider,
-            BASE_THRESHOLD,
-        )
+        self._orchestrator = Orchestrator()
 
         # Виджет выбора окна
-        self.window_select_widget = WindowSelectWidget(self, self._windows_provider)
+        self.window_select_widget = WindowSelectWidget(self, self._orchestrator.window_controller)
 
         # Виджет выбора камеры
-        self.camera_select_widget = CameraSelectWidget(self, self._cameras_provider)
-        self.camera_select_widget.new_camera_selected.connect(self.camera_selected)
-        self._camera_controller.new_camera_selected(self.camera_select_widget.current_camera_index)
+        self.camera_select_widget = CameraSelectWidget(
+            self,
+            self._orchestrator.camera_provider,
+            self._orchestrator.camera_controller
+        )
 
         self.layout.addWidget(self.window_select_widget)
         self.layout.addWidget(self.camera_select_widget)
@@ -55,44 +50,47 @@ class MainWindow(QMainWindow):
         self._toggle_edit.setMaximumWidth(35)
         self._angle_layout = QHBoxLayout()
 
-        # Таймер обновления списка окон
-        self._toggle_button = QPushButton("Вкл", self)
-        self._toggle_button.clicked.connect(self.toggle_on_off)
-        self._toggle_button.setCheckable(True)
+        # Toggle button
+        self.is_on = False
+        self._toggle_on_off = QPushButton("Включить", self)
+        self._toggle_on_off.clicked.connect(self.toggle_on_off)
+        self._toggle_on_off.setCheckable(True)
+
+        self._is_camera_visible = False
+        self._toggle_view = QPushButton("Показать камеру", self)
+        self._toggle_view.clicked.connect(self.toggle_view)
+        self._toggle_view.setCheckable(True)
 
         self._angle_layout.addWidget(self.toggle_label)
         self._angle_layout.addWidget(self._toggle_edit)
         self._angle_layout.addWidget(QLabel("градусов", self))
-        self._angle_layout.addWidget(self._toggle_button)
+        self._angle_layout.addWidget(self._toggle_view)
+        self._angle_layout.addWidget(self._toggle_on_off)
         self.layout.addLayout(self._angle_layout)
 
-    def camera_selected(self, camera_id: int):
-        logger.info(f"Выбрана камера {camera_id}")
-        self._camera_controller.new_camera_selected(camera_id)
-
-    def toggle_on_off(self, checked):
-        if checked:
-            self._toggle_button.setText("Выкл")
-            self._camera_controller.on()
-            self._keyboard_controller.on()
+    def toggle_on_off(self):
+        if self.is_on:
+            self._toggle_on_off.setText("Включить")
         else:
-            self._toggle_button.setText("Вкл")
-            self._camera_controller.off()
-            self._keyboard_controller.off()
+            self._toggle_on_off.setText("Выключить")
+        self.is_on = not self.is_on
+        self._orchestrator.toggle_on_off()
 
-    @property
-    def angle(self) -> int:
-        try:
-            return int(self._toggle_edit.text())
-        except ValueError:
-            return BASE_THRESHOLD
+    def toggle_view(self):
+        self._is_camera_visible = not self._is_camera_visible
+        if self._is_camera_visible:
+            self._toggle_view.setText("Скрыть камеру")
+        else:
+            self._toggle_view.setText("Показать камеру")
+        self._orchestrator.set_camera_view(self._is_camera_visible)
 
     def _on_angle_changed(self):
         try:
             angle = int(self._toggle_edit.text())
-            if angle < 0 or angle > 90:
-                raise ValueError
+            if not 0 <= angle <= 90:
+                raise ValueError("Угол должен быть в диапазоне от 0 до 90")
         except ValueError:
-            self._toggle_edit.setText(str(self._camera_controller.threshold))
+            logger.debug("Некорректное значение угла")
+            self._toggle_edit.setText(str(BASE_THRESHOLD))
         else:
-            self._camera_controller.threshold = angle
+            self._orchestrator.set_threshold(angle)

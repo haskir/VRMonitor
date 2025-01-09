@@ -3,6 +3,8 @@ from pygetwindow import getAllWindows, getActiveWindow, Win32Window
 
 from usecases.singleton import Singleton
 
+from consts import TEST_CAMERA_TITLE as TITLE
+
 
 class CustomWin32Window(Win32Window):
     def __init__(self, window: Win32Window):
@@ -13,7 +15,10 @@ class CustomWin32Window(Win32Window):
 
     @property
     def hWnd(self) -> int:
-        return self._hWnd
+        try:
+            return self._hWnd
+        except AttributeError:
+            return -1
 
 
 class WindowsProvider(Singleton):
@@ -24,11 +29,21 @@ class WindowsProvider(Singleton):
     @classmethod
     def all_windows(cls) -> list[CustomWin32Window]:
         # Перебираем окна и создаем экземпляры CustomWin32Window вместо Win32Window
-        return [CustomWin32Window(window) for window in getAllWindows() if window.title]
+        return [CustomWin32Window(window) for window in getAllWindows() if window.title and TITLE not in window.title]
 
     @property
     def is_target_active(self) -> bool:
-        return self.is_all_targets or self.getActiveWindow.hWnd in self._targets
+        if self._is_all_targets:
+            return True
+        for hWnd, window in self._targets.items():
+            try:
+                if window.hWnd == self.getActiveWindow.hWnd:
+                    return True
+            except (AttributeError, ValueError):
+                logger.debug(f"Попытка удаления несуществующего окна [{window.hWnd}]")
+                self.remove_window(window)
+
+        return False
 
     @property
     def getActiveWindow(self) -> CustomWin32Window:

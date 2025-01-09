@@ -16,7 +16,10 @@ class Camera:
         return f"Устройство {self.index:02d}: {self.name}"
 
 
-class CameraProvider(Singleton):
+class CamerasProvider(Singleton):
+    def __init__(self):
+        self.show = False
+
     @staticmethod
     def _test_camera(index: int) -> bool:
         try:
@@ -31,14 +34,14 @@ class CameraProvider(Singleton):
             logger.error(f"Ошибка при тестировании камеры[{index}]: {e}")
             return False
 
-    @staticmethod
-    def get_available_cameras() -> list[Camera]:
+    @classmethod
+    def get_available_cameras(cls) -> list[Camera]:
         """
         Возвращает список доступных камер.
         """
         cameras_list = []
-        camera_ids = CameraProvider._get_available_cameras_ids()
-        camera_names = CameraProvider._get_camera_names()
+        camera_ids = cls._get_available_cameras_ids()
+        camera_names = cls._get_camera_names()
 
         for index in camera_ids:
             name = camera_names.get(index, f"Camera {index}")
@@ -83,13 +86,15 @@ class CameraProvider(Singleton):
                 if "USB" in item.Name or "Camera" in item.Name or "Webcam" in item.Name:
                     camera_names[index] = item.Name
                     index += 1
+        except TypeError:
+            pass
         except Exception as e:
-            logger.error(f"Ошибка при получении названий камер: {e}")
+            logger.error(f"Ошибка при получении названий камер: {type(e)} {e}")
         return camera_names
 
 
 if __name__ == "__main__":
-    provider = CameraProvider()
+    provider = CamerasProvider()
     cameras = provider.get_available_cameras()
 
     if cameras:

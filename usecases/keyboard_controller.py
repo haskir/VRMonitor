@@ -46,3 +46,4 @@ class KeyboardController:
 
     def off(self):
         self._is_on = False
+        self.release_all()

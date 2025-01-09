@@ -4,7 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-mediapipe = "*"
+mediapipe = "*
 pyside6 = "*"
 pynput = "*"
 pygetwindow = "*"

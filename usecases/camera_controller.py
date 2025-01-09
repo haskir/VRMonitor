@@ -1,27 +1,31 @@
 import time
+from typing import Callable
 from venv import logger
 
 import cv2
 import mediapipe as mp
 import numpy as np
 
-from usecases.keyboard_controller import KeyboardController
-from usecases.windows_provider import WindowsProvider
+from consts import TEST_CAMERA_TITLE
 
 
 class CameraController:
     def __init__(
             self,
-            qe_controller: KeyboardController,
-            window_cont: WindowsProvider,
+            on_left: Callable,
+            on_right: Callable,
+            on_neutral: Callable,
             threshold: int
     ):
-
-        self.cap: cv2.VideoCapture | None = None
-        self.qe_controller = qe_controller
+        self.on_left = on_left
+        self.on_right = on_right
+        self.on_neutral = on_neutral
         self.threshold = threshold
-        self.window_cont = window_cont
+        self.camera_index = 0
         self.is_on = False
+
+        self.is_visible = False
+        self.cap = None
 
     def on(self):
         if not self.is_on:
@@ -31,8 +35,8 @@ class CameraController:
     def off(self):
         self.is_on = False
 
-    def new_camera_selected(self, index: int):
-        self.cap = cv2.VideoCapture(index)
+    def set_camera_index(self, index: int):
+        self.camera_index = index
 
     @classmethod
     def _calculate_head_tilt(cls, landmarks):
@@ -43,9 +47,6 @@ class CameraController:
         left_eye = np.array([(landmarks[33][0], landmarks[33][1])])  # Левый глаз
         right_eye = np.array([(landmarks[263][0], landmarks[263][1])])  # Правый глаз
 
-        # Координаты носа (верхняя точка)
-        # nose_tip = np.array([(landmarks[1][0], landmarks[1][1])])
-
         # Вычисление угла между глазами
         dx = right_eye[0][0] - left_eye[0][0]
         dy = right_eye[0][1] - left_eye[0][1]
@@ -55,15 +56,14 @@ class CameraController:
     def _is_sufficient_angle(self, angle: float) -> bool:
         return abs(angle) > self.threshold
 
-    @classmethod
-    def _get_text_to_display(cls, angle: float) -> str:
+    def _get_text_to_display(self, angle: float) -> str:
         # Определение направления наклона
         if angle > 10:
-            return f"Head tilt to the left ({angle:.2f})"
+            return f"Head tilt to the left ({angle:.2f}) [{self.threshold}]"
         elif angle < -10:
-            return f"Head tilt to the right ({angle:.2f})"
+            return f"Head tilt to the right ({angle:.2f}) [{self.threshold}]"
         else:
-            return f"Head is straight ({angle:.2f})"
+            return f"Head is straight ({angle:.2f}) [{self.threshold}]"
 
     @classmethod
     def _put_text_to_window(cls, text: str, frame, color: tuple[int, int, int] = None):
@@ -80,13 +80,16 @@ class CameraController:
         )
 
     def _run(self):
-        if not self.cap:
-            return logger.error("Камера не выбрана!")
-        logger.info(f'Запуск камеры {self.cap}')
+        logger.info(f'Запуск камеры {self.camera_index}')
 
         # Инициализация Mediapipe
         mp_face_mesh = mp.solutions.face_mesh
         face_mesh = mp_face_mesh.FaceMesh()
+
+        self.cap = cv2.VideoCapture(self.camera_index)
+
+        is_destroyed = False
+        is_created = False
 
         while self.cap.isOpened() and self.is_on:
             time.sleep(0.03)
@@ -111,9 +114,9 @@ class CameraController:
                         angle = self._calculate_head_tilt(landmarks)
 
                         if self._is_sufficient_angle(angle):
-                            self.qe_controller.press_q() if angle > 0 else self.qe_controller.press_e()
+                            self.on_left() if angle > 0 else self.on_right()
                         else:
-                            self.qe_controller.release_all()
+                            self.on_neutral()
 
                         # Визуализация точек лица
                         for x, y in landmarks:
@@ -126,7 +129,12 @@ class CameraController:
                         )
 
                 # Показываем изображение
-                cv2.imshow("Head Tilt Detection", frame)
+                if self.is_visible:
+                    cv2.imshow(TEST_CAMERA_TITLE, frame)
+                    is_created = True
+                elif is_created and not is_destroyed:
+                    cv2.destroyWindow(TEST_CAMERA_TITLE)
+                    is_destroyed = True
 
                 # Выход из программы по нажатию клавиши "]"
                 if cv2.waitKey(1) & 0xFF == ord(']'):
@@ -135,7 +143,6 @@ class CameraController:
                 break
             except Exception as e:
                 logger.error(f"Произошла ошибка: {e}")
-                time.sleep(1)
 
         self.cap.release()
         cv2.destroyAllWindows()
