@@ -1,12 +1,10 @@
-import time
-
-from pynput.keyboard import Controller, Key
+from pynput.keyboard import Controller
 
 q = Q = "q"
 e = E = "e"
 
 
-class QEController:
+class KeyboardController:
     def __init__(self):
         self.keyboard = Controller()
         self._q = False

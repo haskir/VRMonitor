@@ -1,4 +1,5 @@
 import cv2
+from loguru import logger
 
 
 class CameraProvider:
@@ -9,11 +10,11 @@ class CameraProvider:
             while True:
                 ret, frame = cap.read()
                 if not ret:
-                    print(f"Ошибка: Невозможно считать кадр с камеры[{index}]!")
+                    logger.info(f"Ошибка: Невозможно считать кадр с камеры[{index}]!")
                     return False
                 return True
         except Exception as e:
-            print(f"Ошибка при тестировании камеры[{index}]: {e}")
+            logger.error(f"Ошибка при тестировании камеры[{index}]: {e}")
             return False
 
     @staticmethod
@@ -29,6 +30,8 @@ class CameraProvider:
             available.append(i)
             cap.release()
 
-            print(f"Camera {i:02d} is OK!")
+            logger.info(f"Camera {i:02d} is OK!")
+        if not available:
+            logger.error("Нет доступных камер!")
 
         return available
