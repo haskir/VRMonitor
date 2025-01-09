@@ -69,6 +69,7 @@ class MainWindow(QMainWindow):
         self.layout.addLayout(self._angle_layout)
 
     def toggle_on_off(self):
+        print("toggle_on_off clicked")
         if self.is_on:
             self._toggle_on_off.setText("Включить")
         else:

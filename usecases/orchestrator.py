@@ -39,11 +39,10 @@ class Orchestrator(Singleton):
 
     def toggle_on_off(self):
         logger.info(f'Orchestrator is {"OFF" if self._is_on else "ON"}')
+        self._is_on = not self._is_on
         if self._is_on:
-            self.camera_controller.off()
-            self.keyboard_controller.off()
-        else:
             self.keyboard_controller.on()
             self.camera_controller.on()
-        self._is_on = not self._is_on
-        return self._is_on
+        else:
+            self.camera_controller.off()
+            self.keyboard_controller.off()
