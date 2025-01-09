@@ -1,5 +1,5 @@
 from PySide6.QtCore import QTimer, Signal, Qt
-from PySide6.QtWidgets import QCheckBox, QWidget, QVBoxLayout, QButtonGroup, QLabel, QScrollArea
+from PySide6.QtWidgets import QCheckBox, QWidget, QVBoxLayout, QButtonGroup, QLabel, QScrollArea, QHBoxLayout
 from loguru import logger
 
 from usecases.windows_provider import WindowsProvider, CustomWin32Window
@@ -36,9 +36,18 @@ class WindowSelectWidget(QWidget):
         self._windows_provider = windows_provider
 
         # Заголовок
+        self.top_layout = QHBoxLayout()
+
         self.title = QLabel("Окна, в которых работает программа", self)
         self.title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.layout.addWidget(self.title, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        self._all_toggler = QCheckBox("Все окна", self)
+        self._all_toggler.stateChanged.connect(self._toggle_all)
+
+        self.top_layout.addWidget(self.title)
+        self.top_layout.addWidget(self._all_toggler)
+
+        self.layout.addLayout(self.top_layout)
 
         # Область с прокруткой
         self.scroll_area = QScrollArea(self)
@@ -85,6 +94,10 @@ class WindowSelectWidget(QWidget):
             self._windows_provider.add_window(self._windows[hwnd].window)
         else:
             self._windows_provider.remove_window(self._windows[hwnd].window)
+
+    def _toggle_all(self, checked: bool):
+        self._windows_provider.is_all_targets = checked
+        self.scroll_content.setEnabled(not checked)
 
     @classmethod
     def on_select(cls, *args):
