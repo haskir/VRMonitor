@@ -3,6 +3,9 @@ A PySide6 desktop application that connects to a camera,
 monitors head tilt angles, and simulates key presses based on the detected tilt angle.
 This project is designed for use with shooter games that have "peek mechanics" like in PUBG.
 
+[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/WPQFUlv4Rc4/0.jpg)](https://youtu.be/WPQFUlv4Rc4)
+
+
 ## Features
 - **Head tilt detection**: Real-time monitoring of head angles via a webcam or external camera.
 - **User-friendly GUI**: Built with PySide6 for a clean and intuitive interface.

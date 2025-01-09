@@ -1,0 +1,1 @@
+nuitka --standalone --output-dir=compiled/VRMonitor.exe main.py; cp ./shape_predictor_68_face_landmarks.dat compiled/;
