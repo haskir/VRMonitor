@@ -4,7 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-mediapipe = "*
+mediapipe = "*"
 pyside6 = "*"
 pynput = "*"
 pygetwindow = "*"
@@ -12,6 +12,8 @@ loguru = "*"
 pywin32 = "*"
 
 [dev-packages]
+nuitka = "*"
+pylint = "*"
 
 [requires]
 python_version = "3.12"
