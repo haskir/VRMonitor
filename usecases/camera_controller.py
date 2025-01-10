@@ -23,6 +23,7 @@ class CameraController:
         self.threshold = threshold
         self.camera_index = 0
         self.is_on = False
+        self.visualize_detection = True
 
         self.is_visible = False
         self.cap = None
@@ -37,24 +38,6 @@ class CameraController:
 
     def set_camera_index(self, index: int):
         self.camera_index = index
-
-    @classmethod
-    def _calculate_head_tilt(cls, landmarks):
-        """
-        Функция для вычисления угла наклона головы
-        """
-        # Координаты глаз
-        left_eye = np.array([(landmarks[33][0], landmarks[33][1])])  # Левый глаз
-        right_eye = np.array([(landmarks[263][0], landmarks[263][1])])  # Правый глаз
-
-        # Вычисление угла между глазами
-        dx = right_eye[0][0] - left_eye[0][0]
-        dy = right_eye[0][1] - left_eye[0][1]
-        angle = np.degrees(np.arctan2(dy, dx))
-        return angle
-
-    def _is_sufficient_angle(self, angle: float) -> bool:
-        return abs(angle) > self.threshold
 
     def _get_text_to_display(self, angle: float) -> str:
         # Определение направления наклона
@@ -78,6 +61,37 @@ class CameraController:
             fontScale=0.7,
             color=color if color else (255, 255, 255)
         )
+
+    @classmethod
+    def _calculate_head_tilt(cls, landmarks):
+        """
+        Функция для вычисления угла наклона головы
+        """
+        # Координаты глаз
+        left_eye = np.array([(landmarks[33][0], landmarks[33][1])])  # Левый глаз
+        right_eye = np.array([(landmarks[263][0], landmarks[263][1])])  # Правый глаз
+
+        # Вычисление угла между глазами
+        dx = right_eye[0][0] - left_eye[0][0]
+        dy = right_eye[0][1] - left_eye[0][1]
+        angle = np.degrees(np.arctan2(dy, dx))
+        return angle
+
+    @classmethod
+    def _visualize_face(cls, frame, landmarks):
+        """
+        Функция для отображения глаз на изображении. Визуализация точек лица
+        """
+        for x, y in landmarks:
+            cv2.circle(
+                frame,
+                center=(int(x), int(y)),
+                radius=1,
+                color=(0, 255, 255),
+                thickness=-1)
+
+    def _is_sufficient_angle(self, angle: float) -> bool:
+        return abs(angle) > self.threshold
 
     def _run(self):
         logger.info(f'Запуск камеры {self.camera_index}')
@@ -106,7 +120,8 @@ class CameraController:
                 if results.multi_face_landmarks:
                     for face_landmarks in results.multi_face_landmarks:
                         # Извлечение координат ключевых точек лица
-                        landmarks = [(lm.x * frame.shape[1], lm.y * frame.shape[0]) for lm in face_landmarks.landmark]
+                        landmarks = [(lm.x * frame.shape[1], lm.y * frame.shape[0])
+                                     for lm in face_landmarks.landmark]
                         # Вычисление угла наклона
                         angle = self._calculate_head_tilt(landmarks)
 
@@ -117,15 +132,15 @@ class CameraController:
 
                         if not self.is_visible:
                             continue
-                        # Визуализация точек лица
-                        for x, y in landmarks:
-                            cv2.circle(frame, (int(x), int(y)), 1, (0, 255, 255), -1)
 
                         self._put_text_to_window(
                             self._get_text_to_display(angle),
                             frame,
                             (255, 255, 255) if not abs(angle) > 10 else (255, 0, 0) if angle > 0 else (0, 255, 0)
                         )
+
+                        if self.visualize_detection:
+                            self._visualize_face(frame, landmarks)
 
                 # Показываем изображение
                 if self.is_visible:
