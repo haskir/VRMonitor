@@ -10,6 +10,7 @@ pynput = "*"
 pygetwindow = "*"
 loguru = "*"
 pywin32 = "*"
+sqlalchemy = "*"
 
 [dev-packages]
 nuitka = "*"

@@ -136,7 +136,7 @@ class CameraController:
                         self._put_text_to_window(
                             self._get_text_to_display(angle),
                             frame,
-                            (255, 255, 255) if not abs(angle) > 10 else (255, 0, 0) if angle > 0 else (0, 255, 0)
+                            (255, 0, 0)  # Blue
                         )
 
                         if self.visualize_detection:

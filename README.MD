@@ -21,9 +21,8 @@ from the command line using the following steps:
 2. Create a virtual environment: `python -m venv venv`
 3. Activate the virtual environment: `source venv/bin/activate`
 4. Install dependencies: `pip install -r requirements.txt`
-5. Download the .dat file from Italojs: https://github.com/italojs/facial-landmarks-recognition
-and put it in the same folder as the application.
-6. Run the application: `python main.py`
+and put it in the same folder as the application. 
+5. Run the application: `python main.py`
 
 ## Usage
 - **Camera Selection**: Select the camera to use for head tilt detection.
@@ -31,6 +30,3 @@ and put it in the same folder as the application.
 - **Start/Stop**: Start or stop the head tilt detection.
 - **Key Presses**: Simulate key presses based on head tilt angles.
 - **Exit**: Close the application.
-
-** Thanks a lot to Italojs and his .dat file.**
-https://github.com/italojs/
