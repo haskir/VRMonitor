@@ -1,49 +1,95 @@
 from pynput.keyboard import Controller
 
-q = Q = "q"
-e = E = "e"
+from models import GameSettings
 
 
 class KeyboardController:
     def __init__(self):
         self.keyboard = Controller()
-        self._is_on = False
-        self._q = False
-        self._e = False
+        self._left = False
+        self._right = False
+        self._sit = False
 
-    def press_q(self):
-        if not self._is_on:
+        self._settings = GameSettings.default()
+
+    def to_left(self):
+        if self._right:
+            self.un_right()
+        self._left = True
+
+        s = self._settings.left
+        if s.hold_or_press == s.HoldOrPress.HOLD:
+            self.keyboard.press(self._settings.left.button)
+        elif s.hold_or_press == s.HoldOrPress.PRESS:
+            self.keyboard.tap(self._settings.left.button)
+        else:
+            raise ValueError(f"Некорректная настройка to_left [{s.hold_or_press}]")
+
+    def to_right(self):
+        if self._left:
+            self.un_left()
+        self._right = True
+
+        s = self._settings.right
+        if s.hold_or_press == s.HoldOrPress.HOLD:
+            self.keyboard.press(self._settings.right.button)
+        elif s.hold_or_press == s.HoldOrPress.PRESS:
+            self.keyboard.tap(self._settings.right.button)
+        else:
+            raise ValueError(f"Некорректная настройка to_right [{s.hold_or_press}]")
+
+    def un_left(self):
+        if not self._left:
             return
-        if self._e:
-            self.release_e()
-        self._q = True
-        self.keyboard.press(q)
+        self._left = False
+        s = self._settings.left
+        if s.hold_or_press == s.HoldOrPress.HOLD:
+            self.keyboard.release(self._settings.left.button)
+        elif s.hold_or_press == s.HoldOrPress.PRESS:
+            self.keyboard.tap(self._settings.left.button)
+        else:
+            raise ValueError(f"Некорректная настройка un_left [{s.hold_or_press}]")
 
-    def release_q(self):
-        if self._q:
-            self._q = False
-            self.keyboard.release(q)
-
-    def press_e(self):
-        if not self._is_on:
+    def un_right(self):
+        if not self._right:
             return
-        if self._q:
-            self.release_q()
-        self._e = True
-        self.keyboard.press(e)
+        self._right = False
+        s = self._settings.right
+        if s.hold_or_press == s.HoldOrPress.HOLD:
+            self.keyboard.release(self._settings.right.button)
+        elif s.hold_or_press == s.HoldOrPress.PRESS:
+            self.keyboard.tap(self._settings.right.button)
+        else:
+            raise ValueError(f"Некорректная настройка un_right [{s.hold_or_press}]")
 
-    def release_e(self):
-        if self._e:
-            self._e = False
-            self.keyboard.release(e)
+    def sit(self):
+        if self._sit:
+            return
+        self._sit = True
+
+        s = self._settings.sit
+        if s.hold_or_press == s.HoldOrPress.HOLD:
+            self.keyboard.press(self._settings.sit.button)
+        elif s.hold_or_press == s.HoldOrPress.PRESS:
+            self.keyboard.tap(self._settings.sit.button)
+        else:
+            raise ValueError(f"Некорректная настройка sit [{s.hold_or_press}]")
+
+    def stand(self):
+        if not self._sit:
+            return
+        self._sit = False
+        s = self._settings.sit
+        if s.hold_or_press == s.HoldOrPress.HOLD:
+            self.keyboard.release(self._settings.sit.button)
+        elif s.hold_or_press == s.HoldOrPress.PRESS:
+            self.keyboard.tap(self._settings.sit.button)
+        else:
+            raise ValueError(f"Некорректная настройка stand [{s.hold_or_press}]")
 
     def release_all(self):
-        self.release_q()
-        self.release_e()
+        self.un_left()
+        self.un_right()
 
-    def on(self):
-        self._is_on = True
-
-    def off(self):
-        self._is_on = False
-        self.release_all()
+    def set_settings(self, settings: GameSettings):
+        self._settings = settings

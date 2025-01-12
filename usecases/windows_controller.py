@@ -10,14 +10,17 @@ class WindowsController(Singleton):
     def __init__(self):
         self._targets = {"PUBG"}
         self._is_all_targets = False
+        self._current = ""
+
+    def update_current(self):
+        self._current = getActiveWindow().title
 
     @property
     def is_target_active(self) -> bool:
         if self._is_all_targets:
             return True
-        active = getActiveWindow().title
         for target in self._targets:
-            if target in active:
+            if target in self._current:
                 return True
         return False
 

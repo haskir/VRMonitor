@@ -9,7 +9,7 @@ from loguru import logger
 from consts import BASE_THRESHOLD
 
 from UI.camera_list import CameraSelectWidget
-from UI.settings_menu import SettingsType, Setting, GameSettings, SettingsMenu
+from UI.settings_menu import SettingsMenu
 from usecases.orchestrator import Orchestrator
 
 
@@ -27,7 +27,7 @@ class MainWindow(QMainWindow):
         self.layout = QVBoxLayout(self.central_widget)
 
         # Контроллеры
-        self._orchestrator = Orchestrator()
+        self._orchestrator = Orchestrator(self)
 
         # Toggle angle
         self._top_layout = QHBoxLayout()
