@@ -2,6 +2,7 @@ from PySide6.QtCore import QObject, QTimer
 from loguru import logger
 
 from consts import BASE_THRESHOLD
+from models import GameSettings
 from usecases.camera_controller import CameraController
 from usecases.cameras_provider import CamerasProvider
 from usecases.keyboard_controller import KeyboardController
@@ -26,6 +27,9 @@ class Orchestrator(QObject):
         self._is_sit_controlling = False
 
         self._is_on = False
+
+    def update_game_settings(self, settings: GameSettings):
+        self.keyboard_controller.set_settings(settings)
 
     def set_camera_view(self, is_visible: bool):
         self.camera_controller.is_visible = is_visible

@@ -70,6 +70,7 @@ class MainWindow(QMainWindow):
 
     def show_settings(self):
         d = SettingsMenu(self)
+        d.game_settings_updated.connect(self._orchestrator.update_game_settings)
         button_geometry = self._settings_button.geometry()
         global_point = self.mapToGlobal(button_geometry.topLeft())
         dialog_x = global_point.x()

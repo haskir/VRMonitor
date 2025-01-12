@@ -1,1 +1,1 @@
-from .settings import *
+from .game_settings import *

@@ -54,7 +54,7 @@ class GameSettingsGroup(QGroupBox):
 
 
 class SettingsMenu(QMenu):
-    settings_updated = Signal(GameSettings)
+    game_settings_updated = Signal(GameSettings)
 
     def __init__(self, parent, game_settings: GameSettings = GameSettings.default()):
         super().__init__(parent)
@@ -89,12 +89,12 @@ class SettingsMenu(QMenu):
     def handle_settings_update(self, t: SettingsType, update: Setting):
         logger.info(f"Обновление настроек [{t}] на [{update}]")
         self._settings.update(t, update)
-        self.settings_updated.emit(self._settings)
+        self.game_settings_updated.emit(self._settings)
 
     def cancel_settings(self):
         self._settings = GameSettings.default()
         self.load_subwidgets()
-        self.settings_updated.emit(self._settings)
+        self.game_settings_updated.emit(self._settings)
 
 
 if __name__ == "__main__":
