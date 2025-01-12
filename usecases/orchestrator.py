@@ -14,7 +14,12 @@ class Orchestrator(QObject):
         super().__init__(parent)
 
         self.camera_controller: CameraController = CameraController(
-            self.on_left, self.on_right, self.on_neutral, BASE_THRESHOLD
+            on_left=self.on_left,
+            on_right=self.on_right,
+            on_up=self.on_stand,
+            on_down=self.on_sit,
+            on_neutral=self.on_neutral,
+            threshold=BASE_THRESHOLD
         )
         self.camera_provider: CamerasProvider = CamerasProvider()
         self.window_controller: WindowsController = WindowsController()

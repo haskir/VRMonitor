@@ -10,24 +10,28 @@ from consts import TEST_CAMERA_TITLE
 
 
 class CameraController:
+    Y_THRESHOLD = 200
+
     def __init__(
             self,
             on_left: Callable,
             on_right: Callable,
             on_neutral: Callable,
+            on_up: Callable,
+            on_down: Callable,
             threshold: int
     ):
         self.on_left = on_left
         self.on_right = on_right
         self.on_neutral = on_neutral
+        self.on_up = on_up
+        self.on_down = on_down
         self.threshold = threshold
         self.camera_index = 0
         self.is_on = False
         self.visualize_detection = True
 
-        self._state = 0
-        # Если 1, то наклон влево
-        # Если 2, то наклон вправо
+        self._state = 0  # 1 если, то наклон влево, 2 если, то наклон вправо
 
         self.is_visible = False
         self.cap = None
@@ -118,8 +122,8 @@ class CameraController:
                 # Обнаружение лица
                 results = face_mesh.process(rgb_frame)
 
-                if results.multi_face_landmarks:
-                    for face_landmarks in results.multi_face_landmarks:
+                if results.multi_face_landmarks: # noqa
+                    for face_landmarks in results.multi_face_landmarks: # noqa
                         # Извлечение координат ключевых точек лица
                         landmarks = [(lm.x * frame.shape[1], lm.y * frame.shape[0])
                                      for lm in face_landmarks.landmark]
