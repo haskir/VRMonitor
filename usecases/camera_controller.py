@@ -25,6 +25,10 @@ class CameraController:
         self.is_on = False
         self.visualize_detection = True
 
+        self._state = 0
+        # Если 1, то наклон влево
+        # Если 2, то наклон вправо
+
         self.is_visible = False
         self.cap = None
 
@@ -90,9 +94,6 @@ class CameraController:
                 color=(0, 255, 255),
                 thickness=-1)
 
-    def _is_sufficient_angle(self, angle: float) -> bool:
-        return abs(angle) > self.threshold
-
     def _run(self):
         logger.info(f'Запуск камеры {self.camera_index}')
 
@@ -125,9 +126,18 @@ class CameraController:
                         # Вычисление угла наклона
                         angle = self._calculate_head_tilt(landmarks)
 
-                        if self._is_sufficient_angle(angle):
-                            self.on_left() if angle > 0 else self.on_right()
+                        # Определение направления наклона
+                        if abs(angle) > self.threshold:
+                            if angle > 0:
+                                if self._state != -1:
+                                    self.on_left()
+                                self._state = -1
+                            else:
+                                if self._state != 1:
+                                    self.on_right()
+                                self._state = 1
                         else:
+                            self._state = 0
                             self.on_neutral()
 
                         if not self.is_visible:
