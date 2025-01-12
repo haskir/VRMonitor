@@ -11,6 +11,7 @@ pygetwindow = "*"
 loguru = "*"
 pywin32 = "*"
 sqlalchemy = "*"
+pyautogui = "*"
 
 [dev-packages]
 nuitka = "*"
