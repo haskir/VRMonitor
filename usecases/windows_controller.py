@@ -3,13 +3,13 @@ from pygetwindow import getAllWindows, getActiveWindow, Win32Window
 
 from usecases.singleton import Singleton
 
-from consts import TEST_CAMERA_TITLE as TITLE, DEBUG
+from consts import ON_ALL_WINDOWS
 
 
 class WindowsController(Singleton):
     def __init__(self):
         self._targets = {"PUBG"}
-        self._is_all_targets = DEBUG
+        self._is_all_targets = ON_ALL_WINDOWS
         self._current = ""
 
     def update_current(self):

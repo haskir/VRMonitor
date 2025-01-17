@@ -1,11 +1,13 @@
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QIntValidator
 from PySide6.QtWidgets import (
     QMainWindow, QWidget,
     QVBoxLayout, QPushButton,
-    QLabel, QLineEdit, QHBoxLayout, QToolButton,
+    QLabel, QLineEdit, QHBoxLayout, QToolButton, QGridLayout, QCheckBox,
 )
 from loguru import logger
 
+from UI.sit_mode_editor import SitModeEditor
 from consts import BASE_THRESHOLD
 
 from UI.camera_list import CameraSelectWidget
@@ -17,20 +19,19 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.resize(450, 450)
+        self.setMinimumSize(300, 300)
         self.setMaximumSize(800, 500)
         self.setWindowTitle("VR-монитор kek8")
 
         self.central_widget = QWidget(self)
         self.setCentralWidget(self.central_widget)
-
         self.layout = QVBoxLayout(self.central_widget)
 
         # Контроллеры
         self._orchestrator = Orchestrator(self)
 
         # Toggle angle
-        self._top_layout = QHBoxLayout()
+        self._first_row = QHBoxLayout()
         self.toggle_label = QLabel("Выберите пороговый угол", self)
         self._toggle_edit = QLineEdit("20", self)
         self._toggle_edit.setValidator(QIntValidator(0, 90))
@@ -51,11 +52,18 @@ class MainWindow(QMainWindow):
         self._toggle_view.clicked.connect(self.toggle_view)
         self._toggle_view.setCheckable(True)
 
-        self.layout.addLayout(self._top_layout)
-        self._top_layout.addWidget(self.toggle_label)
-        self._top_layout.addWidget(self._toggle_edit)
-        self._top_layout.addWidget(QLabel("градусов", self))
-        self._top_layout.addWidget(self._settings_button)
+        self._first_row.addWidget(self.toggle_label)
+        self._first_row.addWidget(self._toggle_edit)
+        self._first_row.addWidget(QLabel("градусов", self))
+        self._first_row.addWidget(self._settings_button)
+
+        # Вторая строка
+        self._second_row = QGridLayout()
+
+        # Виджет режима сидения
+        self.sit_mode_widget = SitModeEditor(self)
+        self.sit_mode_widget.is_enabled_changed.connect(self._orchestrator.set_is_sit_controlling)
+        self.sit_mode_widget.new_y_signal.connect(self._orchestrator.camera_controller.set_y_threshold)
 
         # Виджет выбора камеры
         self.camera_select_widget = CameraSelectWidget(
@@ -63,10 +71,27 @@ class MainWindow(QMainWindow):
             self._orchestrator.camera_provider,
             self._orchestrator.camera_controller
         )
-        self.layout.addWidget(self.camera_select_widget)
 
-        self.layout.addWidget(self._toggle_view)
-        self.layout.addWidget(self._toggle_on_off)
+        # Виджет вкл/выкл визуализации
+        self.visualization_widget = QCheckBox("Визуализация", self)
+        self.visualization_widget.stateChanged.connect(
+            self._orchestrator.camera_controller.set_visualize_detection
+        )
+
+        self._second_row.addWidget(self.sit_mode_widget, 0, 0, 2, 1,
+                                   alignment=Qt.AlignmentFlag.AlignLeft)
+        self._second_row.addWidget(self.camera_select_widget, 0, 1, 1, 3,
+                                   alignment=Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignBottom)
+        self._second_row.addWidget(self._toggle_view, 1, 1, 1, 1,
+                                   alignment=Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
+        self._second_row.addWidget(self.visualization_widget, 1, 2, 1, 1,
+                                   alignment=Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
+        self._second_row.addWidget(self._toggle_on_off, 1, 3, 1, 1,
+                                   alignment=Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
+
+        # Главный layout
+        self.layout.addLayout(self._first_row)
+        self.layout.addLayout(self._second_row)
 
     def show_settings(self):
         d = SettingsMenu(self)
@@ -105,4 +130,4 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         self._orchestrator.camera_controller.off()
-        self._orchestrator.keyboard_controller.off()
+        self._orchestrator.keyboard_controller.release_all()

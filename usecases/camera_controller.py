@@ -1,40 +1,52 @@
 import time
 from typing import Callable
-from venv import logger
 
 import cv2
 import mediapipe as mp
 import numpy as np
+from loguru import logger
 
 from consts import TEST_CAMERA_TITLE
 
 
 class CameraController:
-    Y_THRESHOLD = 200
 
     def __init__(
             self,
-            on_left: Callable,
-            on_right: Callable,
-            on_neutral: Callable,
-            on_up: Callable,
-            on_down: Callable,
-            threshold: int
+            on_left_callback: Callable,
+            on_right_callback: Callable,
+            on_neutral_callback: Callable,
+            on_up_callback: Callable,
+            on_down_callback: Callable,
+            angle_threshold: int
     ):
-        self.on_left = on_left
-        self.on_right = on_right
-        self.on_neutral = on_neutral
-        self.on_up = on_up
-        self.on_down = on_down
-        self.threshold = threshold
+        self.on_left = on_left_callback
+        self.on_right = on_right_callback
+        self.on_neutral = on_neutral_callback
+        self.on_up = on_up_callback
+        self.on_down = on_down_callback
+        self.angle_threshold = angle_threshold
         self.camera_index = 0
         self.is_on = False
-        self.visualize_detection = True
 
-        self._state = 0  # 1 если, то наклон влево, 2 если, то наклон вправо
+        self._angle_state = 0  # если 2, то наклон влево, если 2, то наклон вправо
+        self._y_state = 0  # если 1, то встать, если 2, то сесть
 
-        self.is_visible = False
+        self._is_visible = False
+        self._visualize_detection = True
+        self._sit_mode: bool = True
+        self.y_threshold = 0
+
         self.cap = None
+
+    def set_visible(self, is_visible: bool):
+        self._is_visible = is_visible
+
+    def set_visualize_detection(self, is_visible: bool):
+        self._visualize_detection = is_visible
+
+    def set_sit_mode(self, sit_mode: bool):
+        self._sit_mode = sit_mode
 
     def on(self):
         if not self.is_on:
@@ -44,17 +56,21 @@ class CameraController:
     def off(self):
         self.is_on = False
 
+    def set_y_threshold(self, threshold: int):
+        logger.info(f"Установка порога Y: {threshold}")
+        self.y_threshold = threshold if threshold > 0 else -threshold
+
     def set_camera_index(self, index: int):
         self.camera_index = index
 
     def _get_text_to_display(self, angle: float) -> str:
         # Определение направления наклона
         if angle > 10:
-            return f"Head tilt to the left ({angle:.2f}) [{self.threshold}]"
+            return f"Head tilt to the left ({angle:.2f}) [{self.angle_threshold}]"
         elif angle < -10:
-            return f"Head tilt to the right ({angle:.2f}) [{self.threshold}]"
+            return f"Head tilt to the right ({angle:.2f}) [{self.angle_threshold}]"
         else:
-            return f"Head is straight ({angle:.2f}) [{self.threshold}]"
+            return f"Head is straight ({angle:.2f}) [{self.angle_threshold}]"
 
     @classmethod
     def _put_text_to_window(cls, text: str, frame, color: tuple[int, int, int] = None):
@@ -85,6 +101,16 @@ class CameraController:
         angle = np.degrees(np.arctan2(dy, dx))
         return angle
 
+    def _calculate_y(self, landmarks):
+        if landmarks[0][1] > self.y_threshold:
+            if self._y_state != 1:
+                self.on_down()
+            self._y_state = 1
+        else:
+            if self._y_state != 2:
+                self.on_up()
+            self._y_state = 2
+
     @classmethod
     def _visualize_face(cls, frame, landmarks):
         """
@@ -97,6 +123,16 @@ class CameraController:
                 radius=1,
                 color=(0, 255, 255),
                 thickness=-1)
+
+    def _visualize_sit_y(self, frame):
+        """ Функция для отображения порогового уровня Y для SitMode """
+
+        if self._sit_mode and self._visualize_detection:
+            cv2.line(frame,
+                     (0, self.y_threshold),
+                     (frame.shape[1], self.y_threshold),
+                     (0, 0, 255),
+                     2)
 
     def _run(self):
         logger.info(f'Запуск камеры {self.camera_index}')
@@ -122,8 +158,8 @@ class CameraController:
                 # Обнаружение лица
                 results = face_mesh.process(rgb_frame)
 
-                if results.multi_face_landmarks: # noqa
-                    for face_landmarks in results.multi_face_landmarks: # noqa
+                if results.multi_face_landmarks:  # noqa
+                    for face_landmarks in results.multi_face_landmarks:  # noqa
                         # Извлечение координат ключевых точек лица
                         landmarks = [(lm.x * frame.shape[1], lm.y * frame.shape[0])
                                      for lm in face_landmarks.landmark]
@@ -131,33 +167,37 @@ class CameraController:
                         angle = self._calculate_head_tilt(landmarks)
 
                         # Определение направления наклона
-                        if abs(angle) > self.threshold:
+                        if abs(angle) > self.angle_threshold:
                             if angle > 0:
-                                if self._state != -1:
+                                if self._angle_state != -1:
                                     self.on_left()
-                                self._state = -1
+                                self._angle_state = -1
                             else:
-                                if self._state != 1:
+                                if self._angle_state != 1:
                                     self.on_right()
-                                self._state = 1
+                                self._angle_state = 1
                         else:
-                            self._state = 0
+                            self._angle_state = 0
                             self.on_neutral()
 
-                        if not self.is_visible:
+                        # Определение режима сидения
+                        if self._sit_mode:
+                            self._calculate_y(landmarks)
+
+                        if not self._is_visible:
                             continue
 
-                        self._put_text_to_window(
-                            self._get_text_to_display(angle),
-                            frame,
-                            (255, 0, 0)  # Blue
-                        )
-
-                        if self.visualize_detection:
+                        if self._visualize_detection:
                             self._visualize_face(frame, landmarks)
+                            self._visualize_sit_y(frame)
+                            self._put_text_to_window(
+                                self._get_text_to_display(angle),
+                                frame,
+                                (255, 0, 0)  # Blue
+                            )
 
                 # Показываем изображение
-                if self.is_visible:
+                if self._is_visible:
                     cv2.imshow(TEST_CAMERA_TITLE, frame)
                     is_created = True
                 elif is_created and not is_destroyed:

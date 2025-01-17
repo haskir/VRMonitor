@@ -1,13 +1,12 @@
 from pynput.keyboard import Controller
-
 from models import GameSettings, HoldOrPress
 
 
 class KeyboardController:
     def __init__(self):
         self.keyboard = Controller()
-        self._sit = False
 
+        self._sit = False
         self._is_pressed = False
 
         self._settings = GameSettings.default()
@@ -63,26 +62,28 @@ class KeyboardController:
             raise ValueError(f"Некорректная настройка un_right [{s.hold_or_press}]")
 
     def sit(self):
+        print("Сажусь")
         if self._sit:
             return
 
         s = self._settings.sit
         if s.hold_or_press == HoldOrPress.HOLD:
-            self.keyboard.press(s.button)
+            self.hold(s.button)
         elif s.hold_or_press == HoldOrPress.PRESS:
-            self.keyboard.tap(s.button)
+            self.press(s.button)
         else:
             raise ValueError(f"Некорректная настройка sit [{s.hold_or_press}]")
         self._sit = True
 
     def stand(self):
+        print("Встаю")
         if not self._sit:
             return
         s = self._settings.sit
         if s.hold_or_press == HoldOrPress.HOLD:
-            self.keyboard.release(s.button)
+            self.release(s.button)
         elif s.hold_or_press == HoldOrPress.PRESS:
-            self.keyboard.tap(s.button)
+            self.press(s.button)
         else:
             raise ValueError(f"Некорректная настройка stand [{s.hold_or_press}]")
         self._sit = False

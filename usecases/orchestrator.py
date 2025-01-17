@@ -14,12 +14,12 @@ class Orchestrator(QObject):
         super().__init__(parent)
 
         self.camera_controller: CameraController = CameraController(
-            on_left=self.on_left,
-            on_right=self.on_right,
-            on_up=self.on_stand,
-            on_down=self.on_sit,
-            on_neutral=self.on_neutral,
-            threshold=BASE_THRESHOLD
+            on_left_callback=self.on_left,
+            on_right_callback=self.on_right,
+            on_up_callback=self.on_stand,
+            on_down_callback=self.on_sit,
+            on_neutral_callback=self.on_neutral,
+            angle_threshold=BASE_THRESHOLD
         )
         self.camera_provider: CamerasProvider = CamerasProvider()
         self.window_controller: WindowsController = WindowsController()
@@ -29,7 +29,7 @@ class Orchestrator(QObject):
         self.timer.timeout.connect(self.window_controller.update_current)
         self.timer.start(3000)  # Каждые 3 секунды проверяем активное окно
 
-        self._is_sit_controlling = False
+        self._is_sit_controlling = True
 
         self._is_on = False
 
@@ -37,7 +37,7 @@ class Orchestrator(QObject):
         self.keyboard_controller.set_settings(settings)
 
     def set_camera_view(self, is_visible: bool):
-        self.camera_controller.is_visible = is_visible
+        self.camera_controller.set_visible(is_visible)
 
     def on_left(self):
         if self.window_controller.is_target_active:
@@ -51,7 +51,13 @@ class Orchestrator(QObject):
         if self.window_controller.is_target_active:
             self.keyboard_controller.release_all()
 
+    def set_is_sit_controlling(self, is_sit_controlling: bool):
+        logger.info("Включение приседаний" if is_sit_controlling else "Выключение приседаний")
+        self._is_sit_controlling = is_sit_controlling
+        self.camera_controller.set_sit_mode(is_sit_controlling)
+
     def on_sit(self):
+        print("on_sit")
         if not self._is_sit_controlling:
             return
         if not self.window_controller.is_target_active:
@@ -59,6 +65,7 @@ class Orchestrator(QObject):
         self.keyboard_controller.sit()
 
     def on_stand(self):
+        print("on_stand")
         if not self._is_sit_controlling:
             return
         if not self.window_controller.is_target_active:
@@ -66,7 +73,7 @@ class Orchestrator(QObject):
         self.keyboard_controller.stand()
 
     def set_threshold(self, threshold: int):
-        self.camera_controller.threshold = threshold
+        self.camera_controller.angle_threshold = threshold
 
     def toggle_on_off(self):
         logger.info(f'Orchestrator is {"OFF" if self._is_on else "ON"}')
