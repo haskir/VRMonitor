@@ -1,7 +1,15 @@
-from PySide6.QtGui import QIntValidator
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QSlider, QLineEdit, QApplication, QCheckBox
-from PySide6.QtCore import Qt, Signal
 import sys
+
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QIntValidator
+from PySide6.QtWidgets import (
+    QApplication,
+    QCheckBox,
+    QLineEdit,
+    QSlider,
+    QVBoxLayout,
+    QWidget,
+)
 
 
 class SitModeEditor(QWidget):
@@ -25,11 +33,12 @@ class SitModeEditor(QWidget):
         self.slider.setTickInterval(50)
         self.slider.setTickPosition(QSlider.TickPosition.TicksRight)
 
-        self.layout = QVBoxLayout(self)
+        self._layout = QVBoxLayout(self)
+        self.setLayout(self._layout)
 
-        self.layout.addWidget(self.is_enabled_box)
-        self.layout.addWidget(self.y_edit)
-        self.layout.addWidget(self.slider)
+        self._layout.addWidget(self.is_enabled_box)
+        self._layout.addWidget(self.y_edit)
+        self._layout.addWidget(self.slider)
 
         self.slider.valueChanged.connect(self.update_line_edit)
         self.y_edit.textChanged.connect(self.update_slider)

@@ -1,4 +1,5 @@
 from pynput.keyboard import Controller
+
 from models import GameSettings, HoldOrPress
 
 

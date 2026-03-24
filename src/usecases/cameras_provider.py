@@ -1,10 +1,8 @@
+from dataclasses import dataclass
+
 import cv2
 import win32com.client
 from loguru import logger
-
-from dataclasses import dataclass
-
-from usecases.singleton import Singleton
 
 
 @dataclass
@@ -16,7 +14,7 @@ class Camera:
         return f"Устройство {self.index:02d}: {self.name}"
 
 
-class CamerasProvider(Singleton):
+class CamerasProvider:
     def __init__(self):
         self.show = False
 

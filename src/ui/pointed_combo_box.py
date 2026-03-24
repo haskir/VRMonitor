@@ -1,26 +1,28 @@
 from typing import Any
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QStandardItemModel, QStandardItem, QKeyEvent
-from PySide6.QtWidgets import QCompleter, QComboBox, QApplication
+from PySide6.QtCore import QObject, Qt
+from PySide6.QtGui import QKeyEvent, QStandardItem, QStandardItemModel
+from PySide6.QtWidgets import QApplication, QComboBox, QCompleter, QWidget
 
 
 class PointedComboBox(QComboBox):
     def __init__(
-            self, parent,
-            items: list = None,
-            editable: bool = False,
-            add_empty: (bool, str) = (False, "")
+        self,
+        parent,
+        items: list | None = None,
+        editable: bool = False,
+        add_empty: tuple[bool, str] = (False, ""),
     ):
         super().__init__(parent)
         self.setEditable(editable)
         if editable:
-            completer = self.completer()
-            completer.setFilterMode(Qt.MatchFlag.MatchContains)
-            completer.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
+            completer: QCompleter | None = self.completer()
+            if completer:
+                completer.setFilterMode(Qt.MatchFlag.MatchContains)
+                completer.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
         self.setMaxVisibleItems(10)
-        self.model = QStandardItemModel()
-        self.setModel(self.model)
+        self._model = QStandardItemModel()
+        self.setModel(self._model)
         if items:
             self.add_items(items, add_empty)
         self.currentIndexChanged.connect(self.updateTooltip)
@@ -45,11 +47,11 @@ class PointedComboBox(QComboBox):
         if add_empty[0]:
             item = QStandardItem(add_empty[1])
             item.setData(None)  # Устанавливаем пользовательские данные
-            self.model.appendRow(item)
+            self._model.appendRow(item)
         for point in points:
             item = QStandardItem(repr(point))
             item.setData(point)  # Устанавливаем пользовательские данные
-            self.model.appendRow(item)
+            self._model.appendRow(item)
         if add_empty:
             self.setCurrentIndex(0)
 
@@ -57,26 +59,28 @@ class PointedComboBox(QComboBox):
         return bool(self.current_data)
 
     def setCurrentItem(self, target: int):
-        for index in range(self.model.rowCount()):
-            item = self.model.item(index)
+        for index in range(self._model.rowCount()):
+            item = self._model.item(index)
             if not item.data():
                 continue
             if item.data().id == target or item.data() == target:
                 self.setCurrentIndex(index)
                 break
         if self.isEditable():
-            key_event = QKeyEvent(QKeyEvent.Type.KeyPress, Qt.Key.Key_Home, Qt.KeyboardModifier.NoModifier)
+            key_event = QKeyEvent(
+                QKeyEvent.Type.KeyPress, Qt.Key.Key_Home, Qt.KeyboardModifier.NoModifier
+            )
             QApplication.postEvent(self, key_event)
 
     @property
-    def current_id(self) -> int or None:
+    def current_id(self) -> int | None:
         if self.current_data:
             return self.current_data.id
         return None
 
     @property
     def current_data(self) -> Any:
-        item = self.model.item(self.currentIndex())
+        item = self._model.item(self.currentIndex())
         if item:
             return item.data()
 
@@ -89,4 +93,6 @@ class PointedComboBox(QComboBox):
             super().keyPressEvent(event)
 
     def wheelEvent(self, event):
-        self.parent().wheelEvent(event)
+        parent: QObject | None = self.parent()
+        if isinstance(parent, QWidget):
+            parent.wheelEvent(event)

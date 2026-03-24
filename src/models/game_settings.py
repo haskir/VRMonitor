@@ -19,7 +19,7 @@ class Setting:
     hold_or_press: HoldOrPress
 
     def __repr__(self):
-        return f'{self.button}: {self.hold_or_press}'
+        return f"{self.button}: {self.hold_or_press}"
 
 
 @dataclass

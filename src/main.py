@@ -1,8 +1,9 @@
 import os
 import sys
+
 from PySide6.QtWidgets import QApplication
 
-from UI.main_window import MainWindow
+from ui import MainWindow
 
 os.chdir(os.path.split(sys.argv[0])[0])
 

@@ -1,11 +1,14 @@
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Any
 
-import pyautogui
 import cv2
 import numpy as np
+import pyautogui
+from pylab import floating
 
 from consts import DEBUG
+
 
 @dataclass(slots=True)
 class Region:
@@ -30,23 +33,20 @@ class PUBGCharacterController:
     def __init__(self, templates=None):
         if templates is None:
             templates = {
-                "stand": "templates/stand.png",
-                "sit": "templates/sit.png",
-                "lie": "templates/lie.png",
+                "stand": "static/templates/stand.png",
+                "sit": "static/templates/sit.png",
+                "lie": "static/templates/lie.png",
             }
 
         self._state = None
         self.orb = cv2.ORB.create()
         self.resolution = pyautogui.size()
 
-        self.templates = {
-            state: cv2.imread(template, cv2.IMREAD_GRAYSCALE)
-            for state, template in templates.items()
-        }
+        self.templates = {state: cv2.imread(template, cv2.IMREAD_GRAYSCALE) for state, template in templates.items()}
 
     @classmethod
     def _calculate_icon_position(cls, resolution: tuple[int, int]) -> Region:
-        """ Вычисляет положение и размер иконки для нового разрешения. """
+        """Вычисляет положение и размер иконки для нового разрешения."""
         base_icon = Region(x=930, y=1300, width=70, height=65)
         base_width, base_height = 2560, 1440
         new_width, new_height = resolution
@@ -73,9 +73,7 @@ class PUBGCharacterController:
         return screenshot
 
     def update_state(self):
-        """
-        Обновляет текущее состояние персонажа.
-        """
+        """Обновляет текущее состояние персонажа"""
         region = self._calculate_icon_position((2560, 1440))
         screenshot = self._make_screenshot(region)
 
@@ -87,14 +85,14 @@ class PUBGCharacterController:
 
         print(f"state: {self._state}")
 
-    def _match_orb(self, image1: np.ndarray, image2: np.ndarray) -> float:
+    def _match_orb(self, image1, image2) -> floating[Any] | float:
         """Сравнение двух изображений с помощью ORB."""
         # Нахождение ключевых точек и дескрипторов
         keypoints1, descriptors1 = self.orb.detectAndCompute(image1, None)
         keypoints2, descriptors2 = self.orb.detectAndCompute(image2, None)
 
         if descriptors1 is None or descriptors2 is None:
-            return float('inf')  # Если не найдено ключевых точек
+            return float("inf")  # Если не найдено ключевых точек
 
         # Сравнение дескрипторов с помощью BFMatcher
         bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
@@ -102,7 +100,7 @@ class PUBGCharacterController:
 
         # Чем меньше среднее расстояние, тем лучше совпадение
         distances = [match.distance for match in matches]
-        return np.mean(distances) if distances else float('inf')
+        return np.mean(distances) if distances else float("inf")
 
     @property
     def state(self):

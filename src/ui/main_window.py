@@ -1,17 +1,23 @@
+from loguru import logger
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIntValidator
 from PySide6.QtWidgets import (
-    QMainWindow, QWidget,
-    QVBoxLayout, QPushButton,
-    QLabel, QLineEdit, QHBoxLayout, QToolButton, QGridLayout, QCheckBox,
+    QCheckBox,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMainWindow,
+    QPushButton,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
 )
-from loguru import logger
 
-from UI.sit_mode_editor import SitModeEditor
 from consts import BASE_THRESHOLD
-
-from UI.camera_list import CameraSelectWidget
-from UI.settings_menu import SettingsMenu
+from ui.camera_list import CameraSelectWidget
+from ui.settings_menu import SettingsMenu
+from ui.sit_mode_editor import SitModeEditor
 from usecases.orchestrator import Orchestrator
 
 
@@ -25,7 +31,8 @@ class MainWindow(QMainWindow):
 
         self.central_widget = QWidget(self)
         self.setCentralWidget(self.central_widget)
-        self.layout = QVBoxLayout(self.central_widget)
+        self._layout = QVBoxLayout(self.central_widget)
+        self.setLayout(self._layout)
 
         # Контроллеры
         self._orchestrator = Orchestrator(self)
@@ -39,7 +46,8 @@ class MainWindow(QMainWindow):
         self._toggle_edit.setMaximumWidth(35)
         self._settings_button = QToolButton(self)
         self._settings_button.setIcon(
-            self.style().standardIcon(self.style().StandardPixmap.SP_ArrowDown))
+            self.style().standardIcon(self.style().StandardPixmap.SP_ArrowDown)
+        )
         self._settings_button.clicked.connect(self.show_settings)
         self._settings_button.setMaximumWidth(30)
 
@@ -62,14 +70,18 @@ class MainWindow(QMainWindow):
 
         # Виджет режима сидения
         self.sit_mode_widget = SitModeEditor(self)
-        self.sit_mode_widget.is_enabled_changed.connect(self._orchestrator.set_is_sit_controlling)
-        self.sit_mode_widget.new_y_signal.connect(self._orchestrator.camera_controller.set_y_threshold)
+        self.sit_mode_widget.is_enabled_changed.connect(
+            self._orchestrator.set_is_sit_controlling
+        )
+        self.sit_mode_widget.new_y_signal.connect(
+            self._orchestrator.camera_controller.set_y_threshold
+        )
 
         # Виджет выбора камеры
         self.camera_select_widget = CameraSelectWidget(
             self,
             self._orchestrator.camera_provider,
-            self._orchestrator.camera_controller
+            self._orchestrator.camera_controller,
         )
 
         # Виджет вкл/выкл визуализации
@@ -78,20 +90,45 @@ class MainWindow(QMainWindow):
             self._orchestrator.camera_controller.set_visualize_detection
         )
 
-        self._second_row.addWidget(self.sit_mode_widget, 0, 0, 2, 1,
-                                   alignment=Qt.AlignmentFlag.AlignLeft)
-        self._second_row.addWidget(self.camera_select_widget, 0, 1, 1, 3,
-                                   alignment=Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignBottom)
-        self._second_row.addWidget(self._toggle_view, 1, 1, 1, 1,
-                                   alignment=Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
-        self._second_row.addWidget(self.visualization_widget, 1, 2, 1, 1,
-                                   alignment=Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
-        self._second_row.addWidget(self._toggle_on_off, 1, 3, 1, 1,
-                                   alignment=Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
+        self._second_row.addWidget(
+            self.sit_mode_widget, 0, 0, 2, 1, alignment=Qt.AlignmentFlag.AlignLeft
+        )
+        self._second_row.addWidget(
+            self.camera_select_widget,
+            0,
+            1,
+            1,
+            3,
+            alignment=Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignBottom,
+        )
+        self._second_row.addWidget(
+            self._toggle_view,
+            1,
+            1,
+            1,
+            1,
+            alignment=Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop,
+        )
+        self._second_row.addWidget(
+            self.visualization_widget,
+            1,
+            2,
+            1,
+            1,
+            alignment=Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop,
+        )
+        self._second_row.addWidget(
+            self._toggle_on_off,
+            1,
+            3,
+            1,
+            1,
+            alignment=Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop,
+        )
 
         # Главный layout
-        self.layout.addLayout(self._first_row)
-        self.layout.addLayout(self._second_row)
+        self._layout.addLayout(self._first_row)
+        self._layout.addLayout(self._second_row)
 
     def show_settings(self):
         d = SettingsMenu(self)
@@ -101,7 +138,7 @@ class MainWindow(QMainWindow):
         dialog_x = global_point.x()
         dialog_y = global_point.y() + button_geometry.height()
         d.setGeometry(dialog_x, dialog_y, d.width(), d.height())
-        d.exec()
+        d.exec()  # type: ignore
 
     def toggle_on_off(self, status: bool):
         if status:

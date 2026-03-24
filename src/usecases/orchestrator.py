@@ -1,5 +1,5 @@
-from PySide6.QtCore import QObject, QTimer
 from loguru import logger
+from PySide6.QtCore import QObject, QTimer
 
 from consts import BASE_THRESHOLD
 from models import GameSettings
@@ -19,7 +19,7 @@ class Orchestrator(QObject):
             on_up_callback=self.on_stand,
             on_down_callback=self.on_sit,
             on_neutral_callback=self.on_neutral,
-            angle_threshold=BASE_THRESHOLD
+            angle_threshold=BASE_THRESHOLD,
         )
         self.camera_provider: CamerasProvider = CamerasProvider()
         self.window_controller: WindowsController = WindowsController()
@@ -76,7 +76,7 @@ class Orchestrator(QObject):
         self.camera_controller.angle_threshold = threshold
 
     def toggle_on_off(self):
-        logger.info(f'Orchestrator is {"OFF" if self._is_on else "ON"}')
+        logger.info(f"Orchestrator is {'OFF' if self._is_on else 'ON'}")
         self._is_on = not self._is_on
         if self._is_on:
             self.camera_controller.on()

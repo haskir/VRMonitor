@@ -1,13 +1,19 @@
+from loguru import logger
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
-    QApplication, QVBoxLayout,
-    QHBoxLayout, QLineEdit, QLabel,
-    QRadioButton, QPushButton, QGroupBox,
-    QButtonGroup, QMenu,
+    QApplication,
+    QButtonGroup,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMenu,
+    QPushButton,
+    QRadioButton,
+    QVBoxLayout,
 )
-from loguru import logger
 
-from models import SettingsType, HoldOrPress, Setting, GameSettings
+from models import GameSettings, HoldOrPress, Setting, SettingsType
 
 
 class GameSettingsGroup(QGroupBox):
@@ -15,7 +21,8 @@ class GameSettingsGroup(QGroupBox):
 
     def __init__(self, parent, t: SettingsType):
         super().__init__(t, parent)
-        self.layout = QVBoxLayout(self)
+        self._layout = QVBoxLayout(self)
+        self.setLayout(self._layout)
 
         self._t = t
 
@@ -28,7 +35,7 @@ class GameSettingsGroup(QGroupBox):
 
         self.field_layout.addWidget(self.label)
         self.field_layout.addWidget(self.field)
-        self.layout.addLayout(self.field_layout)
+        self._layout.addLayout(self.field_layout)
 
         self.radio_layout = QHBoxLayout()
         self.hold_radio = QRadioButton(HoldOrPress.HOLD, self)
@@ -41,7 +48,7 @@ class GameSettingsGroup(QGroupBox):
 
         self.radio_layout.addWidget(self.hold_radio)
         self.radio_layout.addWidget(self.press_radio)
-        self.layout.addLayout(self.radio_layout)
+        self._layout.addLayout(self.radio_layout)
 
     def load_settings(self, setting: Setting):
         self.field.setText(setting.button)
@@ -77,7 +84,9 @@ class SettingsMenu(QMenu):
         # Кнопки
         self.cancel_button = QPushButton("Отмена", self)
         self.cancel_button.clicked.connect(self.cancel_settings)
-        self.main_layout.addWidget(self.cancel_button, alignment=Qt.AlignmentFlag.AlignCenter)
+        self.main_layout.addWidget(
+            self.cancel_button, alignment=Qt.AlignmentFlag.AlignCenter
+        )
 
         self.load_subwidgets()
 
