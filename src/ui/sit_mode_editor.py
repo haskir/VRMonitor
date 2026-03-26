@@ -11,6 +11,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+__all__ = ["SitModeEditor"]
+
 
 class SitModeEditor(QWidget):
     is_enabled_changed = Signal(bool)

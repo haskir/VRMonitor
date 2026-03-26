@@ -1,13 +1,19 @@
+from collections.abc import Sequence
+
 from pygetwindow import getActiveWindow
 
 from consts import ON_ALL_WINDOWS
 
+__all__ = ["WindowsController"]
+
 
 class WindowsController:
-    def __init__(self):
-        self._targets = {"PUBG"}
-        self._is_all_targets = ON_ALL_WINDOWS
-        self._current = ""
+    """Контролирует, на каких окнах будет работать, а на какие нет"""
+
+    def __init__(self, targets: Sequence[str]):
+        self._targets = set(targets if targets else ["PUBG"])
+        self._is_all_targets: bool = ON_ALL_WINDOWS
+        self._current: str = ""
 
     def update_current(self):
         self._current = getActiveWindow().title

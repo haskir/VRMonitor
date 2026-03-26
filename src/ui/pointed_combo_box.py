@@ -4,11 +4,13 @@ from PySide6.QtCore import QObject, Qt
 from PySide6.QtGui import QKeyEvent, QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import QApplication, QComboBox, QCompleter, QWidget
 
+__all__ = ["PointedComboBox"]
+
 
 class PointedComboBox(QComboBox):
     def __init__(
         self,
-        parent,
+        parent: QWidget,
         items: list | None = None,
         editable: bool = False,
         add_empty: tuple[bool, str] = (False, ""),
@@ -67,9 +69,7 @@ class PointedComboBox(QComboBox):
                 self.setCurrentIndex(index)
                 break
         if self.isEditable():
-            key_event = QKeyEvent(
-                QKeyEvent.Type.KeyPress, Qt.Key.Key_Home, Qt.KeyboardModifier.NoModifier
-            )
+            key_event = QKeyEvent(QKeyEvent.Type.KeyPress, Qt.Key.Key_Home, Qt.KeyboardModifier.NoModifier)
             QApplication.postEvent(self, key_event)
 
     @property

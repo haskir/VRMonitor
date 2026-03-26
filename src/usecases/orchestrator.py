@@ -25,13 +25,12 @@ class Orchestrator(QObject):
         self.window_controller: WindowsController = WindowsController()
         self.keyboard_controller: KeyboardController = KeyboardController()
 
-        self.timer = QTimer(self)
+        self.timer: QTimer = QTimer(self)
         self.timer.timeout.connect(self.window_controller.update_current)
         self.timer.start(3000)  # Каждые 3 секунды проверяем активное окно
 
-        self._is_sit_controlling = True
-
-        self._is_on = False
+        self._is_sit_controlling: bool = True
+        self._is_on: bool = False
 
     def update_game_settings(self, settings: GameSettings):
         self.keyboard_controller.set_settings(settings)

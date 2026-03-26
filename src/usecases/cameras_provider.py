@@ -4,6 +4,11 @@ import cv2
 import win32com.client
 from loguru import logger
 
+__all__ = [
+    "Camera",
+    "CamerasProvider",
+]
+
 
 @dataclass
 class Camera:

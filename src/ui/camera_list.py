@@ -1,17 +1,16 @@
-from PySide6.QtWidgets import (
-    QVBoxLayout,
-    QWidget,
-)
+from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 from ui.pointed_combo_box import PointedComboBox
 from usecases.camera_controller import CameraController
 from usecases.cameras_provider import CamerasProvider
 
+__all__ = ["CameraSelectWidget"]
+
 
 class CameraSelectWidget(QWidget):
     def __init__(
         self,
-        parent,
+        parent: QWidget,
         camera_provider: CamerasProvider,
         camera_controller: CameraController,
     ):

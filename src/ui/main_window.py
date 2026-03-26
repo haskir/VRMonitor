@@ -20,6 +20,8 @@ from ui.settings_menu import SettingsMenu
 from ui.sit_mode_editor import SitModeEditor
 from usecases.orchestrator import Orchestrator
 
+__all__ = ["MainWindow"]
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -35,7 +37,7 @@ class MainWindow(QMainWindow):
         self.setLayout(self._layout)
 
         # Контроллеры
-        self._orchestrator = Orchestrator(self)
+        self._orchestrator: Orchestrator = Orchestrator(self)
 
         # Toggle angle
         self._first_row = QHBoxLayout()
@@ -45,9 +47,7 @@ class MainWindow(QMainWindow):
         self._toggle_edit.editingFinished.connect(self._on_angle_changed)
         self._toggle_edit.setMaximumWidth(35)
         self._settings_button = QToolButton(self)
-        self._settings_button.setIcon(
-            self.style().standardIcon(self.style().StandardPixmap.SP_ArrowDown)
-        )
+        self._settings_button.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_ArrowDown))
         self._settings_button.clicked.connect(self.show_settings)
         self._settings_button.setMaximumWidth(30)
 
@@ -70,12 +70,8 @@ class MainWindow(QMainWindow):
 
         # Виджет режима сидения
         self.sit_mode_widget = SitModeEditor(self)
-        self.sit_mode_widget.is_enabled_changed.connect(
-            self._orchestrator.set_is_sit_controlling
-        )
-        self.sit_mode_widget.new_y_signal.connect(
-            self._orchestrator.camera_controller.set_y_threshold
-        )
+        self.sit_mode_widget.is_enabled_changed.connect(self._orchestrator.set_is_sit_controlling)
+        self.sit_mode_widget.new_y_signal.connect(self._orchestrator.camera_controller.set_y_threshold)
 
         # Виджет выбора камеры
         self.camera_select_widget = CameraSelectWidget(
@@ -86,13 +82,9 @@ class MainWindow(QMainWindow):
 
         # Виджет вкл/выкл визуализации
         self.visualization_widget = QCheckBox("Визуализация", self)
-        self.visualization_widget.stateChanged.connect(
-            self._orchestrator.camera_controller.set_visualize_detection
-        )
+        self.visualization_widget.stateChanged.connect(self._orchestrator.camera_controller.set_visualize_detection)
 
-        self._second_row.addWidget(
-            self.sit_mode_widget, 0, 0, 2, 1, alignment=Qt.AlignmentFlag.AlignLeft
-        )
+        self._second_row.addWidget(self.sit_mode_widget, 0, 0, 2, 1, alignment=Qt.AlignmentFlag.AlignLeft)
         self._second_row.addWidget(
             self.camera_select_widget,
             0,

@@ -1,16 +1,23 @@
 from dataclasses import dataclass
 from enum import StrEnum
 
-
-class SettingsType(StrEnum):
-    left = "Наклон влево"
-    right = "Наклон вправо"
-    sit = "Приседание"
+__all__ = [
+    "GameSettings",
+    "HoldOrPress",
+    "Setting",
+    "SettingsType",
+]
 
 
 class HoldOrPress(StrEnum):
     HOLD = "Удержание"
     PRESS = "Нажатие"
+
+
+class SettingsType(StrEnum):
+    left = "Наклон влево"
+    right = "Наклон вправо"
+    sit = "Приседание"
 
 
 @dataclass(slots=True)
@@ -45,11 +52,3 @@ class GameSettings:
             self.sit = setting
         else:
             raise ValueError(f"Некорректный тип настроек [{t}]")
-
-
-__all__ = [
-    "SettingsType",
-    "HoldOrPress",
-    "Setting",
-    "GameSettings",
-]

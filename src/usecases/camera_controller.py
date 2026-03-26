@@ -1,6 +1,7 @@
 import threading
 import time
 from collections.abc import Callable
+from typing import Literal
 
 import cv2
 import mediapipe as mp
@@ -59,18 +60,18 @@ class CameraController:
         angle_threshold: int,
         model_path: str = "static/face_landmarker.task",
     ):
-        self.on_left = on_left_callback
-        self.on_right = on_right_callback
-        self.on_neutral = on_neutral_callback
-        self.on_up = on_up_callback
-        self.on_down = on_down_callback
-        self.angle_threshold = angle_threshold
-        self.camera_index = 0
+        self.on_left: Callable = on_left_callback
+        self.on_right: Callable = on_right_callback
+        self.on_neutral: Callable = on_neutral_callback
+        self.on_up: Callable = on_up_callback
+        self.on_down: Callable = on_down_callback
+        self.angle_threshold: int | float = angle_threshold
+        self.camera_index: int = 0
         self.model_path: str = model_path
-        self.is_on = False
+        self.is_on: bool = False
 
-        self._angle_state = 0  # -1 влево, 1 вправо, 0 прямо
-        self._y_state = 0  # 1 встать, 2 сесть
+        self._angle_state: Literal[-1, 0, 1] = 0  # -1 влево, 1 вправо, 0 прямо
+        self._y_state: Literal[0, 1, 2] = 0  # 1 встать, 2 сесть
 
         self._is_visible = False
         self._visualize_detection = True
@@ -123,13 +124,13 @@ class CameraController:
         )
 
     @classmethod
-    def _calculate_head_tilt(cls, landmarks):
+    def _calculate_head_tilt(cls, landmarks) -> float:
         left_eye = np.array([(landmarks[33][0], landmarks[33][1])])
         right_eye = np.array([(landmarks[263][0], landmarks[263][1])])
 
         dx = right_eye[0][0] - left_eye[0][0]
         dy = right_eye[0][1] - left_eye[0][1]
-        angle = np.degrees(np.arctan2(dy, dx))
+        angle: float = np.degrees(np.arctan2(dy, dx))
         return angle
 
     def _calculate_y(self, landmarks):

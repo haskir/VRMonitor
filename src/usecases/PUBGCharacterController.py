@@ -9,6 +9,18 @@ from pylab import floating
 
 from consts import DEBUG
 
+__all__ = [
+    "CharacterState",
+    "Region",
+    "PUBGCharacterController",
+]
+
+
+class CharacterState(StrEnum):
+    STAND = "stand"
+    SIT = "sit"
+    LIE = "lie"
+
 
 @dataclass(slots=True)
 class Region:
@@ -19,12 +31,6 @@ class Region:
 
     def to_tuple(self):
         return self.x, self.y, self.width, self.height
-
-
-class CharacterState(StrEnum):
-    STAND = "stand"
-    SIT = "sit"
-    LIE = "lie"
 
 
 class PUBGCharacterController:

@@ -7,13 +7,17 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMainWindow,
     QMenu,
     QPushButton,
     QRadioButton,
     QVBoxLayout,
+    QWidget,
 )
 
 from models import GameSettings, HoldOrPress, Setting, SettingsType
+
+__all__ = ["GameSettingsGroup", "SettingsMenu"]
 
 
 class GameSettingsGroup(QGroupBox):
@@ -63,7 +67,7 @@ class GameSettingsGroup(QGroupBox):
 class SettingsMenu(QMenu):
     game_settings_updated = Signal(GameSettings)
 
-    def __init__(self, parent, game_settings: GameSettings = GameSettings.default()):
+    def __init__(self, parent: QWidget | QMainWindow | None, game_settings: GameSettings = GameSettings.default()):
         super().__init__(parent)
 
         self.main_layout = QVBoxLayout(self)
@@ -84,9 +88,7 @@ class SettingsMenu(QMenu):
         # Кнопки
         self.cancel_button = QPushButton("Отмена", self)
         self.cancel_button.clicked.connect(self.cancel_settings)
-        self.main_layout.addWidget(
-            self.cancel_button, alignment=Qt.AlignmentFlag.AlignCenter
-        )
+        self.main_layout.addWidget(self.cancel_button, alignment=Qt.AlignmentFlag.AlignCenter)
 
         self.load_subwidgets()
 
