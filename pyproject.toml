@@ -10,12 +10,13 @@ dependencies = [
     "opencv-python>=4.13.0.92",
     "pyautogui>=0.9.54",
     "pydirectinput>=1.0.4",
-    "pygetwindow>=0.0.9",
+    "pygrabber>=0.2",
     "pyside6>=6.11.0",
-    "pywin32>=311",
+    "pyvirtualcam>=0.15.0",
 ]
 
 [dependency-groups]
 dev = [
+    "nuitka>=4.2.2",
     "ruff>=0.15.7",
 ]

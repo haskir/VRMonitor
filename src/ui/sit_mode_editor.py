@@ -17,14 +17,29 @@ __all__ = ["SitModeEditor"]
 class SitModeEditor(QWidget):
     is_enabled_changed = Signal(bool)
     new_y_signal = Signal(int)
+    auto_calibrate_changed = Signal(bool)
 
-    def __init__(self, parent=None, is_enabled: bool = True, max_y: int = -500):
+    def __init__(
+        self,
+        parent=None,
+        is_enabled: bool = True,
+        y: int = 0,
+        auto_calibrate: bool = False,
+        max_y: int = -500,
+    ):
         super().__init__(parent)
 
         self._is_enabled = is_enabled
 
         self.is_enabled_box = QCheckBox("Sit", self)
-        self.is_enabled_box.stateChanged.connect(self._set_state)
+        self.is_enabled_box.toggled.connect(self._set_state)
+        self.auto_calibrate_box = QCheckBox("Авто", self)
+        self.auto_calibrate_box.setToolTip(
+            "Авто-калибровка: если голова неподвижна 20 секунд,\n"
+            "её положение считается верхним, и линия приседа сдвигается"
+        )
+        self.auto_calibrate_box.setChecked(auto_calibrate)
+        self.auto_calibrate_box.toggled.connect(self.auto_calibrate_changed)
         self.y_edit = QLineEdit("0", self)
         self.y_edit.setMaxLength(4)
         self.y_edit.setMaximumWidth(40)
@@ -39,12 +54,14 @@ class SitModeEditor(QWidget):
         self.setLayout(self._layout)
 
         self._layout.addWidget(self.is_enabled_box)
+        self._layout.addWidget(self.auto_calibrate_box)
         self._layout.addWidget(self.y_edit)
         self._layout.addWidget(self.slider)
 
         self.slider.valueChanged.connect(self.update_line_edit)
         self.y_edit.textChanged.connect(self.update_slider)
 
+        self.set_y(y)
         self._set_state(is_enabled)
 
     def _set_state(self, state: bool):
@@ -52,7 +69,14 @@ class SitModeEditor(QWidget):
         self._is_enabled = state
         self.slider.setEnabled(state)
         self.y_edit.setEnabled(state)
+        self.auto_calibrate_box.setEnabled(state)
         self.is_enabled_changed.emit(state)
+
+    def set_y(self, y: int):
+        """Выставляет порог извне (например, после авто-калибровки)"""
+        self.slider.setValue(-abs(y))
+        # Если значение не изменилось, слайдер не пошлёт сигнал - синхронизируем поле вручную
+        self.y_edit.setText(str(self.slider.value()))
 
     def update_line_edit(self, value):
         # Обновляем значение в QLineEdit при изменении слайдера
@@ -62,7 +86,10 @@ class SitModeEditor(QWidget):
 
     def update_slider(self):
         # Обновляем значение в слайдере при изменении значения в QLineEdit
-        value = int(self.y_edit.text())
+        try:
+            value = int(self.y_edit.text())
+        except ValueError:  # Пустая строка или одинокий минус во время ввода
+            return
         self.slider.setValue(value)
 
 

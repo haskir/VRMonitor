@@ -1,108 +1,107 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import cv2
-import win32com.client
 from loguru import logger
+
+from models import CameraMode
 
 __all__ = [
     "Camera",
+    "CameraMode",
     "CamerasProvider",
 ]
+
+# Форматы, которые OpenCV умеет декодировать через DirectShow; H264/H265 пропускаем
+SUPPORTED_FOURCC = ("MJPG", "YUY2", "NV12", "RGB24")
+# Сюда мы сами выводим картинку - если читать её же, получится петля
+OWN_OUTPUT_CAMERAS = ("OBS Virtual Camera",)
 
 
 @dataclass
 class Camera:
     index: int
     name: str
+    modes: list[CameraMode] = field(default_factory=list)
 
     def __repr__(self):
         return f"Устройство {self.index:02d}: {self.name}"
 
 
-class CamerasProvider:
-    def __init__(self):
-        self.show = False
+class _Subtypes(dict):
+    """pygrabber падает на неизвестных форматах (H264 и т.п.) - достаём FOURCC прямо из GUID"""
 
+    def __missing__(self, guid: str) -> str:
+        return bytes.fromhex(guid[1:9])[::-1].decode("ascii", "replace")
+
+
+class CamerasProvider:
     @staticmethod
     def _test_camera(index: int) -> bool:
+        cap = cv2.VideoCapture(index, cv2.CAP_DSHOW)
         try:
-            cap = cv2.VideoCapture(index)
-            ret, _ = cap.read()
+            return bool(cap.read()[0])
+        finally:
             cap.release()
-            if not ret:
-                logger.info(f"Ошибка: Невозможно считать кадр с камеры[{index}]!")
-                return False
-            return True
-        except Exception as e:
-            logger.error(f"Ошибка при тестировании камеры[{index}]: {e}")
-            return False
 
     @classmethod
     def get_available_cameras(cls) -> list[Camera]:
-        """
-        Возвращает список доступных камер.
-        """
-        cameras_list = []
-        camera_ids = cls._get_available_cameras_ids()
-        camera_names = cls._get_camera_names()
-
-        for index in camera_ids:
-            name = camera_names.get(index, f"Camera {index}")
-            cameras_list.append(Camera(index=index, name=name))
-
-        return cameras_list
-
-    @staticmethod
-    def _get_available_cameras_ids() -> list[int]:
-        """
-        Возвращает список индексов доступных камер.
-        """
-        max_cameras = 10
-        available = []
-        for i in range(max_cameras):
-            cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
-            if not cap.read()[0]:
-                cap.release()
+        """Возвращает список работающих камер с поддерживаемыми режимами"""
+        cameras = []
+        for camera in cls._get_dshow_cameras():
+            if camera.name in OWN_OUTPUT_CAMERAS:
                 continue
+            if cls._test_camera(camera.index):
+                logger.info(f"{camera} - OK, режимов: {len(camera.modes)}")
+                cameras.append(camera)
+            else:
+                logger.info(f"{camera} - не отдаёт кадры, пропускаю")
 
-            available.append(i)
-            cap.release()
-            logger.info(f"Camera {i:02d} is OK!")
-
-        if not available:
+        if not cameras:
             logger.error("Нет доступных камер!")
-        return available
+        return cameras
+
+    @classmethod
+    def _get_dshow_cameras(cls) -> list[Camera]:
+        """Камеры в порядке DirectShow - он совпадает с индексами cv2.CAP_DSHOW"""
+        try:
+            from pygrabber import dshow_graph
+
+            dshow_graph.subtypes = _Subtypes(dshow_graph.subtypes)
+            names = dshow_graph.FilterGraph().get_input_devices()
+        except Exception as e:
+            logger.error(f"Не удалось получить список камер через DirectShow: {e}")
+            return [Camera(index=i, name=f"Camera {i}") for i in range(10)]
+
+        cameras = []
+        for index, name in enumerate(names):
+            try:
+                graph = dshow_graph.FilterGraph()
+                graph.add_video_input_device(index)
+                formats = graph.get_input_device().get_formats()
+            except Exception as e:
+                logger.error(f"Не удалось получить режимы камеры [{index}] {name}: {e}")
+                formats = []
+            cameras.append(Camera(index=index, name=name, modes=cls._pick_modes(formats)))
+        return cameras
 
     @staticmethod
-    def _get_camera_names() -> dict[int, str]:
-        """
-        Получает имена камер с помощью Windows API.
-        """
-        camera_names = {}
-        try:
-            obj = win32com.client.Dispatch("WbemScripting.SWbemLocator")
-            svc = obj.ConnectServer(".", "root\\CIMV2")
-            col_items = svc.ExecQuery("Select * from Win32_PnPEntity")
-
-            index = 0
-            for item in col_items:
-                if "USB" in item.Name or "Camera" in item.Name or "Webcam" in item.Name:
-                    camera_names[index] = item.Name
-                    index += 1
-        except TypeError:
-            pass
-        except Exception as e:
-            logger.error(f"Ошибка при получении названий камер: {type(e)} {e}")
-        return camera_names
+    def _pick_modes(formats: list[dict]) -> list[CameraMode]:
+        """Для каждого разрешения оставляет режим с максимальным fps (при равенстве - MJPG)"""
+        best: dict[tuple[int, int], CameraMode] = {}
+        for f in formats:
+            fourcc = f["media_type_str"]
+            if fourcc not in SUPPORTED_FOURCC:
+                continue
+            # В pygrabber min_framerate считается из минимального интервала кадра, т.е. это максимальный fps
+            mode = CameraMode(width=f["width"], height=f["height"], fps=round(f["min_framerate"]), fourcc=fourcc)
+            current = best.get((mode.width, mode.height))
+            if current is None or (mode.fps, mode.fourcc == "MJPG") > (current.fps, current.fourcc == "MJPG"):
+                best[(mode.width, mode.height)] = mode
+        return sorted(best.values(), key=lambda m: (m.width * m.height, m.fps), reverse=True)
 
 
 if __name__ == "__main__":
-    provider = CamerasProvider()
-    cameras = provider.get_available_cameras()
-
-    if cameras:
-        print("Доступные камеры:")
-        for camera in cameras:
-            print(f"Индекс: {camera.index}, Название: {camera.name}")
-    else:
-        print("Нет доступных камер!")
+    for cam in CamerasProvider.get_available_cameras():
+        print(cam)
+        for m in cam.modes:
+            print("   ", m)

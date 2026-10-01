@@ -1,13 +1,11 @@
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Any
 
 import cv2
 import numpy as np
 import pyautogui
-from pylab import floating
 
-from consts import DEBUG
+from consts import DEBUG, STATIC_DIR
 
 __all__ = [
     "CharacterState",
@@ -39,16 +37,18 @@ class PUBGCharacterController:
     def __init__(self, templates=None):
         if templates is None:
             templates = {
-                "stand": "static/templates/stand.png",
-                "sit": "static/templates/sit.png",
-                "lie": "static/templates/lie.png",
+                "stand": STATIC_DIR / "templates" / "stand.png",
+                "sit": STATIC_DIR / "templates" / "sit.png",
+                "lie": STATIC_DIR / "templates" / "lie.png",
             }
 
         self._state = None
         self.orb = cv2.ORB.create()
         self.resolution = pyautogui.size()
 
-        self.templates = {state: cv2.imread(template, cv2.IMREAD_GRAYSCALE) for state, template in templates.items()}
+        self.templates = {
+            state: cv2.imread(str(template), cv2.IMREAD_GRAYSCALE) for state, template in templates.items()
+        }
 
     @classmethod
     def _calculate_icon_position(cls, resolution: tuple[int, int]) -> Region:
@@ -91,7 +91,7 @@ class PUBGCharacterController:
 
         print(f"state: {self._state}")
 
-    def _match_orb(self, image1, image2) -> floating[Any] | float:
+    def _match_orb(self, image1, image2) -> float:
         """Сравнение двух изображений с помощью ORB."""
         # Нахождение ключевых точек и дескрипторов
         keypoints1, descriptors1 = self.orb.detectAndCompute(image1, None)
@@ -106,7 +106,7 @@ class PUBGCharacterController:
 
         # Чем меньше среднее расстояние, тем лучше совпадение
         distances = [match.distance for match in matches]
-        return np.mean(distances) if distances else float("inf")
+        return float(np.mean(distances)) if distances else float("inf")
 
     @property
     def state(self):

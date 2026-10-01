@@ -67,12 +67,12 @@ class GameSettingsGroup(QGroupBox):
 class SettingsMenu(QMenu):
     game_settings_updated = Signal(GameSettings)
 
-    def __init__(self, parent: QWidget | QMainWindow | None, game_settings: GameSettings = GameSettings.default()):
+    def __init__(self, parent: QWidget | QMainWindow | None, game_settings: GameSettings | None = None):
         super().__init__(parent)
 
         self.main_layout = QVBoxLayout(self)
 
-        self._settings = game_settings
+        self._settings = game_settings if game_settings else GameSettings.default()
 
         self.to_left_group = GameSettingsGroup(self, SettingsType.left)
         self.to_right_group = GameSettingsGroup(self, SettingsType.right)

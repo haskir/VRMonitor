@@ -10,10 +10,10 @@ pydirectinput.FAILSAFE = False  # type: ignore
 
 
 class KeyboardController:
-    def __init__(self, settings: GameSettings = GameSettings.default()):
+    def __init__(self, settings: GameSettings | None = None):
         self._sit: bool = False
         self._current_lean: str | None = None  # Состояние наклона: "left", "right" или None
-        self._settings: GameSettings = settings
+        self._settings: GameSettings = settings if settings else GameSettings.default()
 
     def hold(self, button: str):
         print(f"Удерживается кнопка {button}")
@@ -115,3 +115,24 @@ class KeyboardController:
 
     def set_settings(self, settings: GameSettings):
         self._settings = settings
+
+    def release_held(self):
+        """
+        Отпускает удерживаемые (HOLD) клавиши, например при уходе из игры.
+        Переключатели (PRESS) не трогаем: их состояние хранит игра, а нажатие вне её напечатало бы букву
+        """
+        lean = {"left": self._settings.left, "right": self._settings.right}.get(self._current_lean or "")
+        if lean and lean.hold_or_press == HoldOrPress.HOLD:
+            self.release(lean.button)
+            self._current_lean = None
+        if self._sit and self._settings.sit.hold_or_press == HoldOrPress.HOLD:
+            self.release(self._settings.sit.button)
+            self._sit = False
+
+    @property
+    def current_lean(self) -> str | None:
+        return self._current_lean
+
+    @property
+    def is_sitting(self) -> bool:
+        return self._sit

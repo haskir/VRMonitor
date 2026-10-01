@@ -1,0 +1,9 @@
+# yamllint disable rule:line-length
+# Дополнения к встроенной конфигурации пакетов Nuitka
+---
+- module-name: 'mediapipe.tasks.c'
+  dlls:
+    # mediapipe грузит библиотеку через ctypes по пути из importlib.resources, Nuitka сам её не находит
+    - from_filenames:
+        prefixes:
+          - 'libmediapipe'
