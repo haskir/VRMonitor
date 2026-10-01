@@ -62,6 +62,11 @@ class CameraRuntime(Protocol):
 
     virtual_cam_failed: Event[str]  # Испускается из потока камеры
 
+    @property
+    def is_blank(self) -> bool:
+        """Камера отдаёт сплошной чёрный кадр (занята другой программой или закрыта шторкой)"""
+        ...
+
     def start(self) -> None: ...
 
     def stop(self, wait: bool = False) -> None: ...

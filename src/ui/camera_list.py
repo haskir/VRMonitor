@@ -17,6 +17,7 @@ class CameraSelectWidget(QWidget):
         super().__init__(parent)
 
         self._layout: QVBoxLayout = QVBoxLayout(self)
+        self._layout.setContentsMargins(0, 0, 0, 0)
 
         self.camera_box = PointedComboBox(self)
         self.camera_box.currentIndexChanged.connect(self._on_camera_select)

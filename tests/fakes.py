@@ -101,6 +101,7 @@ class RecordingCameraRuntime:
         self.virtual_cam_failed: Event[str] = Event()
         self.calls: list[tuple[str, object]] = []
         self.running = False
+        self.is_blank = False
 
     def start(self):
         self.running = True

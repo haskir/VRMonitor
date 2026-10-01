@@ -1,5 +1,6 @@
 import threading
 import time
+from collections.abc import Callable
 
 from loguru import logger
 
@@ -7,6 +8,7 @@ from application.events import Event
 from application.head_tracking import HeadTracking
 from domain.camera import CameraMode
 
+from .blank_frames import BlankFrameDetector
 from .capture import CameraCaptureThread
 from .face_tracker import MediaPipeFaceTracker
 from .overlay import draw_face_mesh, draw_sit_lines, draw_status
@@ -22,8 +24,20 @@ class CameraPipeline:
     затем вывод картинки в окно предпросмотра и виртуальную камеру OBS
     """
 
-    def __init__(self, tracking: HeadTracking):
+    def __init__(
+        self,
+        tracking: HeadTracking,
+        # Фабрики компонентов - в тестах подменяются заглушками без камеры и MediaPipe
+        capture_factory: Callable[[int, CameraMode | None], CameraCaptureThread] = CameraCaptureThread,
+        face_tracker_factory: Callable[[], MediaPipeFaceTracker] = MediaPipeFaceTracker,
+        virtual_cam_factory: Callable[..., VirtualCameraOutput] = VirtualCameraOutput,
+        preview_factory: Callable[[], PreviewWindow] = PreviewWindow,
+    ):
         self._tracking = tracking
+        self._capture_factory = capture_factory
+        self._face_tracker_factory = face_tracker_factory
+        self._virtual_cam_factory = virtual_cam_factory
+        self._preview_factory = preview_factory
         self.virtual_cam_failed: Event[str] = Event()
 
         self._camera_index = 0
@@ -35,6 +49,12 @@ class CameraPipeline:
 
         self._is_on = False
         self._worker: threading.Thread | None = None
+        self._blank_frames = BlankFrameDetector()
+
+    @property
+    def is_blank(self) -> bool:
+        """Камера отдаёт сплошной чёрный кадр - скорее всего, её заняла другая программа"""
+        return self._blank_frames.is_blank
 
     # --- Настройки (из потока UI; поток камеры читает их на каждом кадре) ---
 
@@ -90,12 +110,12 @@ class CameraPipeline:
 
     def _run(self):
         logger.info(f"Запуск камеры {self._camera_index}")
-        face_tracker = MediaPipeFaceTracker()
+        face_tracker = self._face_tracker_factory()
         active_capture = (self._camera_index, self._camera_mode)
-        capture = CameraCaptureThread(*active_capture)
+        capture = self._capture_factory(*active_capture)
         capture.start()
-        preview = PreviewWindow()
-        virtual_cam = VirtualCameraOutput(on_error=self._virtual_cam_error)
+        preview = self._preview_factory()
+        virtual_cam = self._virtual_cam_factory(on_error=self._virtual_cam_error)
 
         fps = 0.0
         last_frame_time = time.monotonic()
@@ -108,9 +128,10 @@ class CameraPipeline:
                 if (self._camera_index, self._camera_mode) != active_capture:
                     capture.stop()
                     active_capture = (self._camera_index, self._camera_mode)
-                    capture = CameraCaptureThread(*active_capture)
+                    capture = self._capture_factory(*active_capture)
                     capture.start()
                     last_processed_id = -1
+                    self._blank_frames.reset()
 
                 # Ждём свежий кадр из потока захвата
                 ret, frame, frame_id = capture.wait_for_frame(last_processed_id)
@@ -120,6 +141,11 @@ class CameraPipeline:
                 now = time.monotonic()
                 fps = 0.9 * fps + 0.1 / max(now - last_frame_time, 1e-3)  # Сглаженный fps обработки
                 last_frame_time = now
+                if self._blank_frames.update(frame, now):
+                    if self._blank_frames.is_blank:
+                        logger.warning(f"Камера {active_capture[0]} отдаёт чёрный кадр - возможно, она занята")
+                    else:
+                        logger.info("Камера снова отдаёт изображение")
 
                 try:
                     face = face_tracker.detect(frame, int((now - start_time) * 1000))
@@ -151,6 +177,7 @@ class CameraPipeline:
                 except Exception as e:
                     logger.error(f"Ошибка обработки кадра: {e}")
         finally:
+            self._blank_frames.reset()
             capture.stop()
             virtual_cam.close()
             face_tracker.close()

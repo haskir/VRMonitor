@@ -11,7 +11,9 @@ from domain.settings import DEFAULT_ANGLE_THRESHOLD
 from .events import Event
 from .input_controller import InputController
 
-__all__ = ["HeadTracking", "TrackingOverlay"]
+__all__ = ["POSE_STALE_SECONDS", "HeadTracking", "LiveHead", "TrackingOverlay"]
+
+POSE_STALE_SECONDS = 1.0  # Лица нет на камере дольше - считаем, что оно потеряно
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,6 +26,14 @@ class TrackingOverlay:
     base_y: int | None
 
 
+@dataclass(frozen=True, slots=True)
+class LiveHead:
+    """Текущее положение головы для подсказок в интерфейсе"""
+
+    pose: HeadPose | None  # None - лица нет на камере
+    base_y: int | None  # Откалиброванный верх головы
+
+
 class HeadTracking:
     """Поза головы с камеры -> наклоны и присед -> InputController. Вызывается из потока камеры"""
 
@@ -33,6 +43,7 @@ class HeadTracking:
         self._lean = LeanDetector(DEFAULT_ANGLE_THRESHOLD)
         self._sit = SitDetector()
         self._sit_enabled = True
+        self._last_pose: tuple[HeadPose, float] | None = None  # Поза и время, когда её увидели
         # Испускается из потока камеры
         self.calibrated: Event[int] = Event()
 
@@ -60,13 +71,20 @@ class HeadTracking:
             base_y=self._sit.base_y,
         )
 
+    def live(self) -> LiveHead:
+        last = self._last_pose
+        fresh = last is not None and self._clock() - last[1] <= POSE_STALE_SECONDS
+        return LiveHead(pose=last[0] if fresh else None, base_y=self._sit.base_y)
+
     def on_pose(self, pose: HeadPose):
+        now = self._clock()
+        self._last_pose = (pose, now)
         if (lean := self._lean.update(pose.tilt)) is not None:
             self._input.set_lean(lean)
 
         if not self._sit_enabled:
             return
-        update = self._sit.update(pose.y, self._clock())
+        update = self._sit.update(pose.y, now)
         if update.calibrated_threshold is not None:
             logger.info(f"Авто-калибровка: верх Y={self._sit.base_y}, порог приседа Y={update.calibrated_threshold}")
             self.calibrated.emit(update.calibrated_threshold)

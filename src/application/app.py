@@ -8,7 +8,7 @@ from domain.camera import CameraInfo
 from domain.settings import AppSettings
 
 from .events import Event
-from .head_tracking import HeadTracking
+from .head_tracking import HeadTracking, LiveHead
 from .input_controller import InputController
 from .ports import CameraCatalog, CameraRuntime, SettingsRepository
 
@@ -80,6 +80,14 @@ class App:
     @property
     def is_running(self) -> bool:
         return self._is_running
+
+    @property
+    def is_camera_blank(self) -> bool:
+        return self._is_running and self._camera.is_blank
+
+    def live_head(self) -> LiveHead:
+        """Где сейчас голова - для живых подсказок рядом с порогами"""
+        return self._tracking.live()
 
     def update(self, **changes: Any):
         """Меняет настройки, сразу применяет их и помечает для сохранения"""
