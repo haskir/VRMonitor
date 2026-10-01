@@ -21,8 +21,11 @@ from ui.camera_list import CameraSelectWidget
 from ui.settings_menu import SettingsMenu
 from ui.sit_mode_editor import SitModeEditor
 from usecases.orchestrator import Orchestrator
+from usecases.stance_detector import Stance
 
 __all__ = ["MainWindow"]
+
+STANCE_TITLES = {Stance.STAND: "стоит", Stance.CROUCH: "сидит", Stance.PRONE: "лежит"}
 
 
 class MainWindow(QMainWindow):
@@ -56,6 +59,7 @@ class MainWindow(QMainWindow):
         camera_controller.set_virtual_cam_mesh(self._settings.virtual_cam_mesh)
         self._orchestrator.set_is_sit_controlling(self._settings.sit_enabled)
         self._orchestrator.set_only_in_game(self._settings.only_in_game)
+        self._orchestrator.set_detect_stance(self._settings.detect_stance)
 
         # Toggle angle
         self._first_row = QHBoxLayout()
@@ -93,10 +97,20 @@ class MainWindow(QMainWindow):
         self.only_in_game_widget.setChecked(self._settings.only_in_game)
         self.only_in_game_widget.toggled.connect(self._orchestrator.set_only_in_game)
         self.only_in_game_widget.toggled.connect(lambda v: self._update_settings(only_in_game=v))
+        self.detect_stance_widget = QCheckBox("Учитывать позу", self)
+        self.detect_stance_widget.setToolTip(
+            "Определять позу персонажа по иконке слева от полосы здоровья.\n"
+            "Пока персонаж лежит, приседания с камеры не нажимаются."
+        )
+        self.detect_stance_widget.setChecked(self._settings.detect_stance)
+        self.detect_stance_widget.toggled.connect(self._orchestrator.set_detect_stance)
+        self.detect_stance_widget.toggled.connect(lambda v: self._update_settings(detect_stance=v))
         self.game_status_label = QLabel(self)
-        self._orchestrator.game_active_changed.connect(self._on_game_active_changed)
-        self._on_game_active_changed(self._orchestrator.is_game_active)
+        self._orchestrator.game_active_changed.connect(self._update_game_status)
+        self._orchestrator.stance_changed.connect(self._update_game_status)
+        self._update_game_status()
         self._game_row.addWidget(self.only_in_game_widget)
+        self._game_row.addWidget(self.detect_stance_widget)
         self._game_row.addStretch()
         self._game_row.addWidget(self.game_status_label)
 
@@ -233,9 +247,10 @@ class MainWindow(QMainWindow):
             self._orchestrator.set_threshold(angle)
             self._update_settings(angle_threshold=angle)
 
-    def _on_game_active_changed(self, is_active: bool):
-        if is_active:
-            self.game_status_label.setText(f"{TARGET_GAME_NAME}: в фокусе")
+    def _update_game_status(self, *_):
+        if self._orchestrator.is_game_active:
+            stance = STANCE_TITLES.get(self._orchestrator.stance)
+            self.game_status_label.setText(f"{TARGET_GAME_NAME}: в фокусе" + (f", {stance}" if stance else ""))
             self.game_status_label.setStyleSheet("color: #2e9e44; font-weight: bold;")
         else:
             self.game_status_label.setText(f"{TARGET_GAME_NAME}: не в фокусе")

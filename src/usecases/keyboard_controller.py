@@ -129,6 +129,17 @@ class KeyboardController:
             self.release(self._settings.sit.button)
             self._sit = False
 
+    def assume_sitting(self, is_sitting: bool) -> bool:
+        """
+        Принимает состояние приседа, увиденное в игре, без нажатий; возвращает True, если оно изменилось.
+        Нужно только для переключателя (PRESS): игрок мог сам нажать присед или встать из положения лёжа,
+        и наше состояние разошлось с игровым. Для HOLD правда - это зажатая клавиша, её не трогаем
+        """
+        if self._settings.sit.hold_or_press != HoldOrPress.PRESS or self._sit == is_sitting:
+            return False
+        self._sit = is_sitting
+        return True
+
     @property
     def current_lean(self) -> str | None:
         return self._current_lean

@@ -1,13 +1,15 @@
 import threading
+import time
 
 from loguru import logger
 from PySide6.QtCore import QObject, QTimer, Signal
 
-from consts import BASE_THRESHOLD, WINDOW_CHECK_INTERVAL_MS
+from consts import BASE_THRESHOLD, STANCE_SETTLE_SECONDS, WINDOW_CHECK_INTERVAL_MS
 from models import GameSettings
 from usecases.camera_controller import CameraController
 from usecases.cameras_provider import CamerasProvider
 from usecases.keyboard_controller import KeyboardController
+from usecases.stance_detector import Stance, StanceDetector, StanceTracker
 from usecases.windows_controller import WindowsController
 
 
@@ -17,6 +19,8 @@ class Orchestrator(QObject):
     virtual_cam_failed = Signal(str)
     # Игра появилась/пропала на переднем плане
     game_active_changed = Signal(bool)
+    # Поза персонажа по HUD игры (Stance | None)
+    stance_changed = Signal(object)
 
     def __init__(self, parent, game_settings: GameSettings | None = None):
         super().__init__(parent)
@@ -46,6 +50,11 @@ class Orchestrator(QObject):
         self._target_active: bool = False
         self._game_active: bool = False
 
+        # Поза персонажа в игре: лёжа приседания с камеры не применяются
+        self._detect_stance: bool = True
+        self._stance_detector = StanceDetector()
+        self._stance_tracker = StanceTracker()
+
         self.timer: QTimer = QTimer(self)
         self.timer.timeout.connect(self._check_active_window)
         self.timer.start(WINDOW_CHECK_INTERVAL_MS)
@@ -68,7 +77,48 @@ class Orchestrator(QObject):
             self._game_active = game_active
             logger.info(f"Игра {'на переднем плане' if game_active else 'не в фокусе'}")
             self.game_active_changed.emit(game_active)
+        self._update_stance()
         self._sync()
+
+    def set_detect_stance(self, detect_stance: bool):
+        logger.info("Поза в игре учитывается" if detect_stance else "Поза в игре не учитывается")
+        self._detect_stance = detect_stance
+        self._update_stance()
+
+    def _update_stance(self):
+        """Снимает иконку позы с HUD, пока игра на переднем плане и детекция включена"""
+        tracker = self._stance_tracker
+        if not (self._detect_stance and self._is_on and self._game_active):
+            with self._lock:
+                changed = tracker.reset()
+            if changed:
+                self._on_stance_changed(tracker.stance)
+            return
+
+        reading = None
+        # Время снимка берём до него: нажатие из потока камеры могло случиться, пока снимали экран
+        timestamp = time.monotonic()
+        rect = self.window_controller.foreground_client_rect()
+        if rect:
+            try:
+                reading = self._stance_detector.detect(rect)
+            except Exception as e:
+                logger.error(f"Не удалось определить позу персонажа: {e}")
+        with self._lock:
+            changed = tracker.update(reading, timestamp)
+            # Игра - источник истины: если игрок сам сменил позу, принимаем её, а _sync приведёт к камере
+            if (
+                tracker.is_settled
+                and tracker.stance in (Stance.STAND, Stance.CROUCH)
+                and self.keyboard_controller.assume_sitting(tracker.stance == Stance.CROUCH)
+            ):
+                logger.info(f"Поза в игре разошлась с нашей, принимаю игровую: {tracker.stance}")
+        if changed:
+            self._on_stance_changed(tracker.stance)
+
+    def _on_stance_changed(self, stance: Stance | None):
+        logger.info(f"Поза персонажа: {stance or 'неизвестна'}")
+        self.stance_changed.emit(stance)
 
     def _sync(self):
         """Приводит нажатые клавиши к желаемому состоянию с учётом активного окна"""
@@ -91,11 +141,19 @@ class Orchestrator(QObject):
                 else:
                     keyboard.release_all()
 
-            if self._is_sit_controlling and self._desired_sit is not None and self._desired_sit != keyboard.is_sitting:
+            is_prone = self._stance_tracker.stance == Stance.PRONE
+            if (
+                self._is_sit_controlling
+                and not is_prone
+                and self._desired_sit is not None
+                and self._desired_sit != keyboard.is_sitting
+            ):
                 if self._desired_sit:
                     keyboard.sit()
                 else:
                     keyboard.stand()
+                # Пока идёт анимация, иконка показывает старую позу - не принимаем её за истину
+                self._stance_tracker.ignore_until(time.monotonic() + STANCE_SETTLE_SECONDS)
 
     def on_left(self):
         self._desired_lean = "left"
@@ -139,3 +197,7 @@ class Orchestrator(QObject):
     @property
     def is_game_active(self) -> bool:
         return self._game_active
+
+    @property
+    def stance(self) -> Stance | None:
+        return self._stance_tracker.stance

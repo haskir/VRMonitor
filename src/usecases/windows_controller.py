@@ -67,6 +67,20 @@ class WindowsController:
         # Процесс не открылся - определяем по заголовку
         return any(target in window.title for target in self._target_titles)
 
+    @staticmethod
+    def foreground_client_rect() -> tuple[int, int, int, int] | None:
+        """Клиентская область активного окна в координатах экрана: x, y, ширина, высота"""
+        hwnd = _user32.GetForegroundWindow()
+        if not hwnd:
+            return None
+        rect = wintypes.RECT()
+        if not _user32.GetClientRect(hwnd, ctypes.byref(rect)):
+            return None
+        origin = wintypes.POINT(0, 0)
+        if not _user32.ClientToScreen(hwnd, ctypes.byref(origin)):
+            return None
+        return origin.x, origin.y, rect.right - rect.left, rect.bottom - rect.top
+
     @property
     def is_game_active(self) -> bool:
         """Игра на переднем плане (независимо от режима "на всех окнах"); проверка занимает ~20 мкс"""

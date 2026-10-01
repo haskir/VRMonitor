@@ -1,6 +1,5 @@
 from pathlib import Path
 
-DEBUG = True
 BASE_THRESHOLD = 20
 TEST_CAMERA_TITLE = "Тестирование выбранной камеры"
 
@@ -8,7 +7,8 @@ TEST_CAMERA_TITLE = "Тестирование выбранной камеры"
 TARGET_GAME_NAME = "PUBG"
 TARGET_PROCESSES = ("TslGame.exe",)
 TARGET_TITLES = ("PUBG: BATTLEGROUNDS",)  # Запасной вариант, если процесс не удалось открыть
-WINDOW_CHECK_INTERVAL_MS = 250  # Как часто проверять смену активного окна
+WINDOW_CHECK_INTERVAL_MS = 250  # Как часто проверять смену активного окна (и позу персонажа)
+STANCE_SETTLE_SECONDS = 0.7  # Сколько после нажатия приседа не верить иконке позы - идёт анимация
 
 # Авто-калибровка верхнего положения головы
 CALIBRATION_SECONDS = 20  # Сколько держать голову неподвижно, чтобы принять её Y за верхнее положение
