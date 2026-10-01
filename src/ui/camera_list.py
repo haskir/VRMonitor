@@ -1,10 +1,8 @@
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
-from models import CameraMode
+from domain.camera import CameraInfo, CameraMode
 from ui.pointed_combo_box import PointedComboBox
-from usecases.camera_controller import CameraController
-from usecases.cameras_provider import Camera, CamerasProvider
 
 __all__ = ["CameraSelectWidget"]
 
@@ -15,30 +13,21 @@ class CameraSelectWidget(QWidget):
     camera_changed = Signal(int)
     mode_changed = Signal(object)  # CameraMode | None
 
-    def __init__(
-        self,
-        parent: QWidget,
-        camera_provider: CamerasProvider,
-        camera_controller: CameraController,
-    ):
+    def __init__(self, parent: QWidget, cameras: list[CameraInfo]):
         super().__init__(parent)
 
-        self._camera_provider = camera_provider
-        self._camera_controller = camera_controller
-
         self._layout: QVBoxLayout = QVBoxLayout(self)
-        self.setLayout(self._layout)
 
         self.camera_box = PointedComboBox(self)
-        self.camera_box.currentIndexChanged.connect(self.on_select)
+        self.camera_box.currentIndexChanged.connect(self._on_camera_select)
         self._layout.addWidget(self.camera_box)
 
         self.mode_box = PointedComboBox(self)
         self.mode_box.setToolTip("Разрешение и частота кадров камеры")
-        self.mode_box.currentIndexChanged.connect(self.on_mode_select)
+        self.mode_box.currentIndexChanged.connect(self._on_mode_select)
         self._layout.addWidget(self.mode_box)
 
-        self._update_camera_list()
+        self.camera_box.add_items(cameras)
 
     @staticmethod
     def _find_row(box: PointedComboBox, predicate) -> int | None:
@@ -59,32 +48,25 @@ class CameraSelectWidget(QWidget):
         row = self._find_row(self.mode_box, lambda m: m == mode) if mode else None
         self.mode_box.setCurrentIndex(row if row is not None else 0)
 
-    def _update_camera_list(self):
-        self.camera_box.add_items(self._camera_provider.get_available_cameras())
-
-    def _update_mode_list(self, camera: Camera | None):
+    def _update_mode_list(self, camera: CameraInfo | None):
         self.mode_box.blockSignals(True)
         self.mode_box.clear()
         self.mode_box.add_items(camera.modes if camera else [], add_empty=(True, DEFAULT_MODE_TITLE))
         self.mode_box.blockSignals(False)
-        self.on_mode_select()
+        self._on_mode_select()
 
-    def on_select(self):
-        """Сигнализирует об изменении камеры"""
-        camera: Camera | None = self.camera_box.current_data
+    def _on_camera_select(self):
+        camera: CameraInfo | None = self.camera_box.current_data
         self._update_mode_list(camera)
         if camera:
-            self._camera_controller.set_camera_index(camera.index)
             self.camera_changed.emit(camera.index)
 
-    def on_mode_select(self):
-        mode: CameraMode | None = self.mode_box.current_data
-        self._camera_controller.set_camera_mode(mode)
-        self.mode_changed.emit(mode)
+    def _on_mode_select(self):
+        self.mode_changed.emit(self.mode_box.current_data)
 
     @property
     def current_camera_index(self) -> int | None:
-        camera: Camera | None = self.camera_box.current_data
+        camera: CameraInfo | None = self.camera_box.current_data
         return camera.index if camera else None
 
     @property

@@ -4,9 +4,10 @@ from ctypes import wintypes
 from dataclasses import dataclass
 from pathlib import PureWindowsPath
 
+from application.ports import ScreenRect
 from consts import TARGET_PROCESSES, TARGET_TITLES
 
-__all__ = ["ForegroundWindow", "WindowsController"]
+__all__ = ["ForegroundWindow", "GameWindowWatcher"]
 
 _user32 = ctypes.WinDLL("user32", use_last_error=True)
 _kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
@@ -34,8 +35,8 @@ def _process_name(pid: int) -> str:
         _kernel32.CloseHandle(handle)
 
 
-class WindowsController:
-    """Контролирует, на каких окнах будет работать, а на какие нет"""
+class GameWindowWatcher:
+    """Следит за активным окном Windows: игра ли это и где её клиентская область"""
 
     def __init__(
         self,
@@ -44,7 +45,6 @@ class WindowsController:
     ):
         self._target_processes = {name.lower() for name in target_processes}
         self._target_titles = tuple(target_titles)
-        self._is_all_targets: bool = False
         self._process_names: dict[int, str] = {}  # pid -> имя exe, чтобы не открывать процесс каждый раз
 
     def get_foreground(self) -> ForegroundWindow | None:
@@ -67,9 +67,12 @@ class WindowsController:
         # Процесс не открылся - определяем по заголовку
         return any(target in window.title for target in self._target_titles)
 
-    @staticmethod
-    def foreground_client_rect() -> tuple[int, int, int, int] | None:
-        """Клиентская область активного окна в координатах экрана: x, y, ширина, высота"""
+    def is_game_active(self) -> bool:
+        """Игра на переднем плане; проверка занимает ~20 мкс"""
+        return self.is_target(self.get_foreground())
+
+    def foreground_rect(self) -> ScreenRect | None:
+        """Клиентская область активного окна в координатах экрана"""
         hwnd = _user32.GetForegroundWindow()
         if not hwnd:
             return None
@@ -80,20 +83,3 @@ class WindowsController:
         if not _user32.ClientToScreen(hwnd, ctypes.byref(origin)):
             return None
         return origin.x, origin.y, rect.right - rect.left, rect.bottom - rect.top
-
-    @property
-    def is_game_active(self) -> bool:
-        """Игра на переднем плане (независимо от режима "на всех окнах"); проверка занимает ~20 мкс"""
-        return self.is_target(self.get_foreground())
-
-    @property
-    def is_target_active(self) -> bool:
-        return self._is_all_targets or self.is_game_active
-
-    @property
-    def is_all_targets(self) -> bool:
-        return self._is_all_targets
-
-    @is_all_targets.setter
-    def is_all_targets(self, value: bool):
-        self._is_all_targets = value

@@ -1,30 +1,14 @@
-from dataclasses import dataclass, field
-
 import cv2
 from loguru import logger
 
-from models import CameraMode
+from domain.camera import CameraInfo, CameraMode
 
-__all__ = [
-    "Camera",
-    "CameraMode",
-    "CamerasProvider",
-]
+__all__ = ["DirectShowCameraCatalog"]
 
 # Форматы, которые OpenCV умеет декодировать через DirectShow; H264/H265 пропускаем
 SUPPORTED_FOURCC = ("MJPG", "YUY2", "NV12", "RGB24")
 # Сюда мы сами выводим картинку - если читать её же, получится петля
 OWN_OUTPUT_CAMERAS = ("OBS Virtual Camera",)
-
-
-@dataclass
-class Camera:
-    index: int
-    name: str
-    modes: list[CameraMode] = field(default_factory=list)
-
-    def __repr__(self):
-        return f"Устройство {self.index:02d}: {self.name}"
 
 
 class _Subtypes(dict):
@@ -34,7 +18,7 @@ class _Subtypes(dict):
         return bytes.fromhex(guid[1:9])[::-1].decode("ascii", "replace")
 
 
-class CamerasProvider:
+class DirectShowCameraCatalog:
     @staticmethod
     def _test_camera(index: int) -> bool:
         cap = cv2.VideoCapture(index, cv2.CAP_DSHOW)
@@ -43,14 +27,13 @@ class CamerasProvider:
         finally:
             cap.release()
 
-    @classmethod
-    def get_available_cameras(cls) -> list[Camera]:
+    def list_cameras(self) -> list[CameraInfo]:
         """Возвращает список работающих камер с поддерживаемыми режимами"""
         cameras = []
-        for camera in cls._get_dshow_cameras():
+        for camera in self._get_dshow_cameras():
             if camera.name in OWN_OUTPUT_CAMERAS:
                 continue
-            if cls._test_camera(camera.index):
+            if self._test_camera(camera.index):
                 logger.info(f"{camera} - OK, режимов: {len(camera.modes)}")
                 cameras.append(camera)
             else:
@@ -61,7 +44,7 @@ class CamerasProvider:
         return cameras
 
     @classmethod
-    def _get_dshow_cameras(cls) -> list[Camera]:
+    def _get_dshow_cameras(cls) -> list[CameraInfo]:
         """Камеры в порядке DirectShow - он совпадает с индексами cv2.CAP_DSHOW"""
         try:
             from pygrabber import dshow_graph
@@ -70,7 +53,7 @@ class CamerasProvider:
             names = dshow_graph.FilterGraph().get_input_devices()
         except Exception as e:
             logger.error(f"Не удалось получить список камер через DirectShow: {e}")
-            return [Camera(index=i, name=f"Camera {i}") for i in range(10)]
+            return [CameraInfo(index=i, name=f"Camera {i}") for i in range(10)]
 
         cameras = []
         for index, name in enumerate(names):
@@ -81,7 +64,7 @@ class CamerasProvider:
             except Exception as e:
                 logger.error(f"Не удалось получить режимы камеры [{index}] {name}: {e}")
                 formats = []
-            cameras.append(Camera(index=index, name=name, modes=cls._pick_modes(formats)))
+            cameras.append(CameraInfo(index=index, name=name, modes=cls._pick_modes(formats)))
         return cameras
 
     @staticmethod
@@ -101,7 +84,7 @@ class CamerasProvider:
 
 
 if __name__ == "__main__":
-    for cam in CamerasProvider.get_available_cameras():
+    for cam in DirectShowCameraCatalog().list_cameras():
         print(cam)
         for m in cam.modes:
             print("   ", m)

@@ -1,13 +1,11 @@
 from loguru import logger
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
-    QApplication,
     QButtonGroup,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QMainWindow,
     QMenu,
     QPushButton,
     QRadioButton,
@@ -15,101 +13,85 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from models import GameSettings, HoldOrPress, Setting, SettingsType
+from domain.bindings import Action, GameBindings, KeyBinding, KeyMode
+from ui.labels import ACTION_TITLES, KEY_MODE_TITLES
 
-__all__ = ["GameSettingsGroup", "SettingsMenu"]
+__all__ = ["BindingEditor", "SettingsMenu"]
 
 
-class GameSettingsGroup(QGroupBox):
-    updated = Signal(SettingsType, Setting)
+class BindingEditor(QGroupBox):
+    """Клавиша и режим (удержание/нажатие) для одного действия"""
 
-    def __init__(self, parent, t: SettingsType):
-        super().__init__(t, parent)
+    updated = Signal(object, object)  # Action, KeyBinding
+
+    def __init__(self, parent: QWidget, action: Action):
+        super().__init__(ACTION_TITLES[action], parent)
+        self._action = action
         self._layout = QVBoxLayout(self)
-        self.setLayout(self._layout)
-
-        self._t = t
 
         self.field_layout = QHBoxLayout()
-        self.label = QLabel(self._t, self)
+        self.label = QLabel(ACTION_TITLES[action], self)
         self.field = QLineEdit(self)
-        self.field.editingFinished.connect(self.on_edit)
+        self.field.editingFinished.connect(self._on_edit)
         self.field.setMaxLength(1)
         self.field.setFixedWidth(50)
-
         self.field_layout.addWidget(self.label)
         self.field_layout.addWidget(self.field)
         self._layout.addLayout(self.field_layout)
 
         self.radio_layout = QHBoxLayout()
-        self.hold_radio = QRadioButton(HoldOrPress.HOLD, self)
-        self.press_radio = QRadioButton(HoldOrPress.PRESS, self)
-
+        self.hold_radio = QRadioButton(KEY_MODE_TITLES[KeyMode.HOLD], self)
+        self.press_radio = QRadioButton(KEY_MODE_TITLES[KeyMode.PRESS], self)
         self.button_group = QButtonGroup(self)
-        self.button_group.buttonClicked.connect(self.on_edit)
+        self.button_group.buttonClicked.connect(self._on_edit)
         self.button_group.addButton(self.hold_radio)
         self.button_group.addButton(self.press_radio)
-
         self.radio_layout.addWidget(self.hold_radio)
         self.radio_layout.addWidget(self.press_radio)
         self._layout.addLayout(self.radio_layout)
 
-    def load_settings(self, setting: Setting):
-        self.field.setText(setting.button)
-        self.hold_radio.setChecked(setting.hold_or_press == HoldOrPress.HOLD)
-        self.press_radio.setChecked(setting.hold_or_press == HoldOrPress.PRESS)
+    def load(self, binding: KeyBinding):
+        self.field.setText(binding.button)
+        self.hold_radio.setChecked(binding.mode == KeyMode.HOLD)
+        self.press_radio.setChecked(binding.mode == KeyMode.PRESS)
 
-    def on_edit(self):
-        h = HoldOrPress.HOLD if self.hold_radio.isChecked() else HoldOrPress.PRESS
-        self.updated.emit(self._t, Setting(button=self.field.text(), hold_or_press=h))
+    def _on_edit(self):
+        if not self.field.text():
+            return
+        mode = KeyMode.HOLD if self.hold_radio.isChecked() else KeyMode.PRESS
+        self.updated.emit(self._action, KeyBinding(button=self.field.text(), mode=mode))
 
 
 class SettingsMenu(QMenu):
-    game_settings_updated = Signal(GameSettings)
+    bindings_updated = Signal(object)  # GameBindings
 
-    def __init__(self, parent: QWidget | QMainWindow | None, game_settings: GameSettings | None = None):
+    def __init__(self, parent: QWidget | None, bindings: GameBindings):
         super().__init__(parent)
-
+        self._bindings = bindings
         self.main_layout = QVBoxLayout(self)
 
-        self._settings = game_settings if game_settings else GameSettings.default()
+        self._editors = {action: BindingEditor(self, action) for action in Action}
+        for editor in self._editors.values():
+            editor.updated.connect(self._on_binding_updated)
+            self.main_layout.addWidget(editor)
 
-        self.to_left_group = GameSettingsGroup(self, SettingsType.left)
-        self.to_right_group = GameSettingsGroup(self, SettingsType.right)
-        self.sit_group = GameSettingsGroup(self, SettingsType.sit)
+        self.reset_button = QPushButton("Сбросить", self)
+        self.reset_button.setToolTip("Вернуть клавиши по умолчанию")
+        self.reset_button.clicked.connect(self._reset)
+        self.main_layout.addWidget(self.reset_button, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        for group in [self.to_left_group, self.to_right_group, self.sit_group]:
-            group.updated.connect(self.handle_settings_update)
+        self._load_editors()
 
-        self.main_layout.addWidget(self.to_left_group)
-        self.main_layout.addWidget(self.to_right_group)
-        self.main_layout.addWidget(self.sit_group)
+    def _load_editors(self):
+        for action, editor in self._editors.items():
+            editor.load(self._bindings.get(action))
 
-        # Кнопки
-        self.cancel_button = QPushButton("Отмена", self)
-        self.cancel_button.clicked.connect(self.cancel_settings)
-        self.main_layout.addWidget(self.cancel_button, alignment=Qt.AlignmentFlag.AlignCenter)
+    def _on_binding_updated(self, action: Action, binding: KeyBinding):
+        logger.info(f"Обновление привязки [{ACTION_TITLES[action]}] на [{binding}]")
+        self._bindings = self._bindings.with_binding(action, binding)
+        self.bindings_updated.emit(self._bindings)
 
-        self.load_subwidgets()
-
-    def load_subwidgets(self):
-        self.to_left_group.load_settings(self._settings.left)
-        self.to_right_group.load_settings(self._settings.right)
-        self.sit_group.load_settings(self._settings.sit)
-
-    def handle_settings_update(self, t: SettingsType, update: Setting):
-        logger.info(f"Обновление настроек [{t}] на [{update}]")
-        self._settings.update(t, update)
-        self.game_settings_updated.emit(self._settings)
-
-    def cancel_settings(self):
-        self._settings = GameSettings.default()
-        self.load_subwidgets()
-        self.game_settings_updated.emit(self._settings)
-
-
-if __name__ == "__main__":
-    app = QApplication([])
-    widget = SettingsMenu(None)
-    widget.show()
-    app.exec()
+    def _reset(self):
+        self._bindings = GameBindings.default()
+        self._load_editors()
+        self.bindings_updated.emit(self._bindings)
