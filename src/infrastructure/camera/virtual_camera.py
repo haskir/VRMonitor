@@ -8,8 +8,7 @@ __all__ = ["VirtualCameraOutput"]
 
 class VirtualCameraOutput:
     """
-    Отдаёт кадры в виртуальную камеру OBS, чтобы физическую камеру держало только это приложение,
-    а OBS забирал картинку как "Устройство захвата видео -> OBS Virtual Camera"
+    Отдаёт кадры в виртуальную камеру, чтобы физическую камеру держало только это приложение.
     """
 
     def __init__(self, on_error: Callable[[str], None] | None = None):
@@ -28,7 +27,7 @@ class VirtualCameraOutput:
         try:
             if self._cam is None or self._format != fmt:
                 self._open(*fmt)
-            self._cam.send(frame)  # type: ignore[union-attr]
+            self._cam.send(frame)  # type: ignore
             return True
         except Exception as e:
             self.close()
@@ -42,9 +41,17 @@ class VirtualCameraOutput:
         import pyvirtualcam
 
         self.close()
-        self._cam = pyvirtualcam.Camera(width, height, fps, fmt=pyvirtualcam.PixelFormat.BGR, backend="obs")
+
+        try:
+            self._cam = pyvirtualcam.Camera(
+                width, height, fps, fmt=pyvirtualcam.PixelFormat.BGR, backend="unitycapture"
+            )
+            logger.info("Виртуальная камера инициализирована через: UnityCapture")
+        except Exception:
+            self._cam = pyvirtualcam.Camera(width, height, fps, fmt=pyvirtualcam.PixelFormat.BGR, backend="obs")
+            logger.info("Виртуальная камера инициализирована через: OBS Virtual Camera")
+
         self._format = (width, height, fps)
-        logger.info(f"Виртуальная камера: {self._cam.device} {width}x{height} @ {fps} fps")
 
     def close(self):
         if self._cam is not None:

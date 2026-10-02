@@ -109,10 +109,10 @@ def pipeline():
     tracking = HeadTracking(InputController(GameKeys(RecordingKeySender()), FakeGameWindow(), game, clock=clock))
     pipeline = CameraPipeline(
         tracking,
-        capture_factory=FakeCapture,
-        face_tracker_factory=FakeFaceTracker,
-        virtual_cam_factory=RecordingVirtualCam,
-        preview_factory=FakePreview,
+        capture_factory=FakeCapture,  # type: ignore
+        face_tracker_factory=FakeFaceTracker,  # type: ignore
+        virtual_cam_factory=RecordingVirtualCam,  # type: ignore
+        preview_factory=FakePreview,  # type: ignore
     )
     yield pipeline
     pipeline.stop(wait=True)

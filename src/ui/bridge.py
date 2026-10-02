@@ -18,6 +18,7 @@ class QtBridge(QObject):
     stance_changed = Signal(object)  # Stance | None
     calibrated = Signal(int)
     virtual_cam_failed = Signal(str)
+    preview_frame = Signal(object)  # np.ndarray
 
     def __init__(self, app: App, parent: QObject | None = None):
         super().__init__(parent)
@@ -27,6 +28,7 @@ class QtBridge(QObject):
         app.stance_changed.connect(self.stance_changed.emit)
         app.calibrated.connect(self.calibrated.emit)
         app.virtual_cam_failed.connect(self.virtual_cam_failed.emit)
+        app.preview_frame.connect(self.preview_frame.emit)
 
         self._poll_timer = QTimer(self)
         self._poll_timer.timeout.connect(app.poll)

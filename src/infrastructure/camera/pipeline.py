@@ -2,6 +2,7 @@ import threading
 import time
 from collections.abc import Callable
 
+import numpy as np
 from loguru import logger
 
 from application.events import Event
@@ -12,7 +13,6 @@ from .blank_frames import BlankFrameDetector
 from .capture import CameraCaptureThread
 from .face_tracker import MediaPipeFaceTracker
 from .overlay import draw_face_mesh, draw_sit_lines, draw_status
-from .preview import PreviewWindow
 from .virtual_camera import VirtualCameraOutput
 
 __all__ = ["CameraPipeline"]
@@ -21,27 +21,26 @@ __all__ = ["CameraPipeline"]
 class CameraPipeline:
     """
     Цикл обработки в отдельном потоке: кадр камеры -> поза головы -> HeadTracking,
-    затем вывод картинки в окно предпросмотра и виртуальную камеру OBS
+    затем вывод картинки в окно предпросмотра (сигнал) и виртуальную камеру
     """
 
     def __init__(
         self,
         tracking: HeadTracking,
-        # Фабрики компонентов - в тестах подменяются заглушками без камеры и MediaPipe
+        # Фабрики компонентов
         capture_factory: Callable[[int, CameraMode | None], CameraCaptureThread] = CameraCaptureThread,
         face_tracker_factory: Callable[[], MediaPipeFaceTracker] = MediaPipeFaceTracker,
         virtual_cam_factory: Callable[..., VirtualCameraOutput] = VirtualCameraOutput,
-        preview_factory: Callable[[], PreviewWindow] = PreviewWindow,
     ):
         self._tracking = tracking
         self._capture_factory = capture_factory
         self._face_tracker_factory = face_tracker_factory
         self._virtual_cam_factory = virtual_cam_factory
-        self._preview_factory = preview_factory
         self.virtual_cam_failed: Event[str] = Event()
+        self.preview_frame: Event[np.ndarray] = Event()
 
         self._camera_index = 0
-        self._camera_mode: CameraMode | None = None  # None - режим камеры по умолчанию
+        self._camera_mode: CameraMode | None = None
         self._preview_visible = False
         self._overlay = True
         self._virtual_cam = False
@@ -53,10 +52,9 @@ class CameraPipeline:
 
     @property
     def is_blank(self) -> bool:
-        """Камера отдаёт сплошной чёрный кадр - скорее всего, её заняла другая программа"""
         return self._blank_frames.is_blank
 
-    # --- Настройки (из потока UI; поток камеры читает их на каждом кадре) ---
+    # --- Настройки ---
 
     def set_camera(self, index: int):
         self._camera_index = index
@@ -72,7 +70,7 @@ class CameraPipeline:
         self._overlay = enabled
 
     def set_virtual_cam(self, enabled: bool):
-        logger.info(f"Вывод в виртуальную камеру OBS: {'вкл' if enabled else 'выкл'}")
+        logger.info(f"Вывод в виртуальную камеру: {'вкл' if enabled else 'выкл'}")
         self._virtual_cam = enabled
 
     def set_virtual_cam_mesh(self, enabled: bool):
@@ -83,7 +81,6 @@ class CameraPipeline:
     def start(self):
         if self._is_on:
             return
-        # Предыдущий цикл мог ещё не завершиться
         if self._worker and self._worker.is_alive():
             self._worker.join()
         self._is_on = True
@@ -104,7 +101,6 @@ class CameraPipeline:
             self._is_on = False
 
     def _virtual_cam_error(self, message: str):
-        # Выключаем вывод, чтобы не пытаться переоткрыть камеру на каждом кадре
         self._virtual_cam = False
         self.virtual_cam_failed.emit(message)
 
@@ -114,7 +110,6 @@ class CameraPipeline:
         active_capture = (self._camera_index, self._camera_mode)
         capture = self._capture_factory(*active_capture)
         capture.start()
-        preview = self._preview_factory()
         virtual_cam = self._virtual_cam_factory(on_error=self._virtual_cam_error)
 
         fps = 0.0
@@ -124,7 +119,6 @@ class CameraPipeline:
 
         try:
             while self._is_on:
-                # Камеру или её режим поменяли на ходу - переоткрываем захват
                 if (self._camera_index, self._camera_mode) != active_capture:
                     capture.stop()
                     active_capture = (self._camera_index, self._camera_mode)
@@ -133,14 +127,14 @@ class CameraPipeline:
                     last_processed_id = -1
                     self._blank_frames.reset()
 
-                # Ждём свежий кадр из потока захвата
                 ret, frame, frame_id = capture.wait_for_frame(last_processed_id)
                 if not ret or frame is None or frame_id == last_processed_id:
                     continue
                 last_processed_id = frame_id
                 now = time.monotonic()
-                fps = 0.9 * fps + 0.1 / max(now - last_frame_time, 1e-3)  # Сглаженный fps обработки
+                fps = 0.9 * fps + 0.1 / max(now - last_frame_time, 1e-3)
                 last_frame_time = now
+
                 if self._blank_frames.update(frame, now):
                     if self._blank_frames.is_blank:
                         logger.warning(f"Камера {active_capture[0]} отдаёт чёрный кадр - возможно, она занята")
@@ -152,7 +146,6 @@ class CameraPipeline:
                     if face:
                         self._tracking.on_pose(face.pose)
 
-                    # Рисование - уже после нажатий клавиш, чтобы не добавлять им задержку
                     show_overlay = self._preview_visible and self._overlay
                     send_virtual_cam = self._virtual_cam
                     mesh_frame = frame
@@ -165,15 +158,14 @@ class CameraPipeline:
                     elif virtual_cam.is_open:
                         virtual_cam.close()
 
-                    # send() копирует кадр синхронно, так что дорисовывать предпросмотр поверх уже безопасно
                     if self._preview_visible:
                         if show_overlay:
                             overlay = self._tracking.overlay()
                             draw_sit_lines(mesh_frame, overlay)
                             draw_status(mesh_frame, face.pose.tilt if face else 0.0, overlay, fps)
-                        preview.show(mesh_frame)
-                    else:
-                        preview.hide()
+                        # Передаем кадр в основной поток Qt
+                        self.preview_frame.emit(mesh_frame)
+
                 except Exception as e:
                     logger.error(f"Ошибка обработки кадра: {e}")
         finally:
@@ -181,4 +173,3 @@ class CameraPipeline:
             capture.stop()
             virtual_cam.close()
             face_tracker.close()
-            preview.close()

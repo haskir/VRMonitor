@@ -83,7 +83,13 @@ def make_window(settings: AppSettings | None = None):
     )
     tracking = HeadTracking(input_controller, clock=clock)
     camera = RecordingCameraRuntime()
-    app = App(MemorySettingsRepository(settings), FakeCameraCatalog(), camera, tracking, input_controller)
+    app = App(
+        MemorySettingsRepository(settings),
+        FakeCameraCatalog(),
+        camera,  # type: ignore
+        tracking,
+        input_controller,
+    )
     return MainWindow(app), app, camera
 
 

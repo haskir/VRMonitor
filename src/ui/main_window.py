@@ -19,6 +19,7 @@ from domain.pose import Y_SCALE
 from ui.bridge import QtBridge
 from ui.camera_list import CameraSelectWidget
 from ui.labels import ACTION_TITLES, STANCE_TITLES
+from ui.preview_window import PreviewWindow
 from ui.widgets.binding_row import BindingRow
 from ui.widgets.threshold_gauge import ThresholdGauge
 
@@ -27,10 +28,9 @@ __all__ = ["MainWindow"]
 LIVE_REFRESH_MS = 100  # Как часто обновлять живые подсказки
 
 BLANK_FRAME_WARNING = (
-    "Камера отдаёт чёрный кадр. Скорее всего, её заняла другая программа — например, OBS, "
-    "где эта камера добавлена источником. Уберите её из OBS и добавьте вместо неё "
-    "«Устройство захвата видео» → «OBS Virtual Camera» (галочка «Вывод в OBS»). "
-    "Также проверьте, не закрыт ли объектив шторкой."
+    "Камера отдаёт чёрный кадр. Скорее всего, её заняла другая программа — например, OBS. "
+    "Уберите физическую камеру из OBS, чтобы освободить её для распознавания. "
+    "Для вывода изображения в OBS используйте источник «Захват окна», выбрав окно «Предпросмотр камеры»."
 )
 MIN_ANGLE, MAX_ANGLE = 1, 60
 LABEL_COLUMN_WIDTH = 64  # Шкалы в разных секциях начинаются с одной вертикали
@@ -82,6 +82,9 @@ class MainWindow(QMainWindow):
         layout.addWidget(self._build_sit_group())
         layout.addWidget(self._build_game_group())
         layout.addStretch()
+
+        self._preview_window = PreviewWindow()
+        self._bridge.preview_frame.connect(self._preview_window.show_frame)
 
         self._bridge.game_active_changed.connect(self._refresh_status)
         self._bridge.stance_changed.connect(self._refresh_status)
@@ -149,14 +152,16 @@ class MainWindow(QMainWindow):
         )
         self.virtual_cam_box = self._setting_checkbox(
             group,
-            "Вывод в OBS",
+            "Виртуальная камера",
             "virtual_cam",
-            "Отдавать изображение камеры в OBS Virtual Camera (работает, пока распознавание включено).\n"
-            "В OBS добавьте источник «Устройство захвата видео» → «OBS Virtual Camera».\n"
-            "Кнопка «Запустить виртуальную камеру» в самом OBS при этом должна быть выключена.",
+            "Отдавать изображение в виртуальную камеру (Discord/Zoom).\n"
+            "Если нужно вывести изображение в сам OBS, используйте источник «Захват окна» (окно предпросмотра).",
         )
         self.virtual_cam_mesh_box = self._setting_checkbox(
-            group, "Сетка лица в OBS", "virtual_cam_mesh", "Рисовать сетку лица на изображении для OBS"
+            group,
+            "Сетка лица в вирт. камере",
+            "virtual_cam_mesh",
+            "Рисовать сетку лица на изображении виртуальной камеры",
         )
         self.virtual_cam_mesh_box.setEnabled(settings.virtual_cam)
         self.virtual_cam_box.toggled.connect(self.virtual_cam_mesh_box.setEnabled)
@@ -286,6 +291,10 @@ class MainWindow(QMainWindow):
     def _on_preview_toggled(self, visible: bool):
         self.preview_button.setText("Скрыть камеру" if visible else "Показать камеру")
         self._app.set_preview_visible(visible)
+        if visible:
+            self._preview_window.show()
+        else:
+            self._preview_window.hide()
 
     def _on_angle_changed(self, angle: int):
         self._show_angle(angle)
@@ -316,9 +325,9 @@ class MainWindow(QMainWindow):
         self.virtual_cam_box.setChecked(False)
         QMessageBox.warning(
             self,
-            "Вывод в OBS",
-            f"{message}\n\nПроверьте, что OBS Studio установлен, "
-            "а его собственная виртуальная камера («Запустить виртуальную камеру») выключена.",
+            "Виртуальная камера",
+            f"{message}\n\nПроверьте, что драйвера виртуальной камеры установлены, "
+            "и они не заблокированы другими программами.",
         )
 
     # --- Отображение ---
@@ -381,5 +390,6 @@ class MainWindow(QMainWindow):
             _set_chip(self.game_chip, f"{TARGET_GAME_NAME} не в фокусе", "off")
 
     def closeEvent(self, event):
+        self._preview_window.close()
         self._live_timer.stop()
         self._bridge.shutdown()

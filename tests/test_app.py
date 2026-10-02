@@ -24,7 +24,7 @@ def make_app(settings: AppSettings | None = None):
     tracking = HeadTracking(input_controller, clock=clock)
     camera = RecordingCameraRuntime()
     repository = MemorySettingsRepository(settings)
-    app = App(repository, FakeCameraCatalog(), camera, tracking, input_controller)
+    app = App(repository, FakeCameraCatalog(), camera, tracking, input_controller)  # type: ignore
     return app, camera, repository, sender, tracking
 
 

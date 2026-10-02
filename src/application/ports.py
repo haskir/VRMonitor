@@ -1,6 +1,6 @@
 """Интерфейсы внешнего мира, которые нужны приложению. Реализации - в infrastructure"""
 
-from typing import Protocol
+from typing import Any, Protocol
 
 from domain.camera import CameraInfo, CameraMode
 from domain.pose import Stance
@@ -61,6 +61,7 @@ class CameraRuntime(Protocol):
     """Захват камеры, распознавание позы головы и вывод картинки (предпросмотр, OBS)"""
 
     virtual_cam_failed: Event[str]  # Испускается из потока камеры
+    preview_frame: Event[Any]  # Испускается из потока камеры, содержит np.ndarray
 
     @property
     def is_blank(self) -> bool:

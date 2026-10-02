@@ -40,8 +40,8 @@ def fake_pyvirtualcam(monkeypatch):
     FakeCamera.fail_on_open = None
     FakeCamera.fail_on_send = None
     module = types.ModuleType("pyvirtualcam")
-    module.Camera = FakeCamera
-    module.PixelFormat = types.SimpleNamespace(BGR="BGR")
+    module.Camera = FakeCamera  # type: ignore
+    module.PixelFormat = types.SimpleNamespace(BGR="BGR")  # type: ignore
     monkeypatch.setitem(sys.modules, "pyvirtualcam", module)
     return FakeCamera
 

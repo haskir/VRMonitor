@@ -42,6 +42,7 @@ class App:
         self.stance_changed = input_controller.stance_changed
         self.calibrated = tracking.calibrated
         self.virtual_cam_failed = camera.virtual_cam_failed
+        self.preview_frame = camera.preview_frame
         self.settings_changed: Event[AppSettings] = Event()
 
         self._appliers: dict[str, Callable[[Any], None]] = {

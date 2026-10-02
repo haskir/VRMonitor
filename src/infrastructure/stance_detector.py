@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import cv2
 import numpy as np
 
+from application.ports import ScreenRect, StanceProbe
 from domain.pose import Stance
 
 __all__ = [
@@ -94,15 +95,15 @@ def classify_stance(image: np.ndarray, scale: float) -> Stance | None:
     return None  # Высота и пропорции противоречат друг другу
 
 
-class ScreenStanceDetector:
+class ScreenStanceDetector(StanceProbe):
     """Снимает область иконки с экрана и определяет позу персонажа"""
 
     def __init__(self):
         self._sct = None  # mss держит контекст устройства потока, создаём лениво в потоке вызова
 
-    def detect(self, screen_rect: tuple[int, int, int, int]) -> Stance | None:
+    def detect(self, rect: ScreenRect) -> Stance | None:
         """screen_rect - клиентская область окна игры на экране: x, y, ширина, высота"""
-        x, y, width, height = screen_rect
+        x, y, width, height = rect
         if width <= 0 or height <= 0:
             return None
         region = icon_region(width, height)

@@ -168,7 +168,7 @@ class ThresholdGauge(QWidget):
             Qt.Key.Key_PageUp: page,
         }
         if event.key() in steps:
-            self.set_value(self._value + steps[event.key()])
+            self.set_value(self._value + steps[event.key()])  # type: ignore
         elif event.key() == Qt.Key.Key_Home:
             self.set_value(self._minimum)
         elif event.key() == Qt.Key.Key_End:
